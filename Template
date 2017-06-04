@@ -7,7 +7,7 @@ local rangeD
 local rangeH
 
 local fileName = shell.getRunningProgram()
-
+local configData = "/config/"..fileName.."_config"
 
 function init()
   Gwiber.setPath(fileName)
