@@ -1,6 +1,7 @@
+local version = "1.00"
+
 local node
 local openedNodeList
-local version = "1.00"
 
 function getRoute(w, d, f, min, max, canPass, isGoal)
   initNode(min, max)

@@ -1,3 +1,5 @@
+local version = "1.02"
+
 local move = {}
 local attack = {}
 local dig = {}
@@ -6,8 +8,6 @@ local detect = {}
 local inspect = {}
 local enchant = nil
 local configData
-
-local version = "1.02"
 
 -- toDo テーブル関連
 

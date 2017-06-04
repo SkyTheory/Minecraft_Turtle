@@ -1,3 +1,5 @@
+local version = "1.00"
+
 local map = {}
 local minSize = {W = 0, D = 0, H = 0}
 local maxSize = {W = 0, D = 0, H = 0}
@@ -13,8 +15,6 @@ local locationData
 local locationBak
 local mapData
 local mapBak
-
-local version = "1.00"
 
 function init(w, d, h)
 -- initialize map size
