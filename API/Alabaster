@@ -1,0 +1,404 @@
+local map = {}
+local minSize = {W = 0, D = 0, H = 0}
+local maxSize = {W = 0, D = 0, H = 0}
+local state = {UNSEARCHED = 0, SEARCHED = 1, TURTLE = 2, WALLED = 3, OBSTRUCTION = 4}
+local curtWidth
+local curtDepth
+local curtHeight
+local curtFacing
+local condition = {}
+local configData
+local refuelLevel
+local locationData
+local locationBak
+local mapData
+local mapBak
+
+local version = "1.00"
+
+function init(w, d, h)
+-- initialize map size
+  if (w > 0) then
+    maxSize.W = w - 1
+  elseif (w < 0) then
+    minSize.W = w + 1
+  end
+  if (d > 0) then
+    maxSize.D = d - 1
+  elseif (d < 0) then
+    minSize.D = d + 1
+  end
+  if (h > 0) then
+    maxSize.H = h - 1
+  elseif (h < 0) then
+    minSize.H = h + 1
+  end
+  condition = {}
+  initMap()
+  setRefuelLevel()
+end
+
+function initResume()
+  loadLocation()
+  initMap()
+  loadMap()
+  printMap()
+  setRefuelLevel()
+end
+
+function initPos(w, d, h, f)
+-- initialize position
+  curtWidth = w
+  curtDepth = d
+  curtHeight = h
+  curtFacing = f
+end
+
+function initMap()
+-- initialize function
+-- reset map
+  for mh = minSize.H, maxSize.H do
+    map[mh] = {}
+    for md = minSize.D, maxSize.D do
+      map[mh][md] = {}
+      for mw = minSize.W, maxSize.W do
+        map[mh][md][mw] = state.UNSEARCHED
+      end
+    end
+  end
+end
+
+function setPath(name)
+--configData = "/config/"..name.."_config"
+  locationData = "/log/"..name.."_location"
+  locationBak = "/bak/"..name.."_location"
+  mapData = "/log/"..name.."_map"
+  mapBak = "/bak/"..name.."_map"
+end
+
+function getPos()
+-- return the current position
+  return curtWidth, curtDepth, curtHeight
+end
+
+function getHeight()
+  return curtHeight
+end
+
+function getFacing()
+-- return the current facing
+  return curtFacing
+end
+
+function setCondition(name, var)
+  condition[name] = var
+  saveLocation()
+end
+
+function getCondition(name)
+-- return the current condition
+  return condition[name]
+end
+
+function getMapSize()
+  return minSize, maxSize
+end
+
+function getNextPos(f, dir)
+-- return the next position
+  return getNextFromPos(f, dir, curtWidth, curtDepth, curtHeight)
+end
+
+function getNextFromPos(f, dir, w, d, h)
+-- return the next position from position and direction
+  if (dir == direction.FORWARD) then
+    -- horizontal case
+    local switchFacing = {}
+    switchFacing[facing.NORTH] = function() d = d + 1 end
+    switchFacing[facing.EAST]  = function() w = w + 1 end
+    switchFacing[facing.SOUTH] = function() d = d - 1 end
+    switchFacing[facing.WEST]  = function() w = w - 1 end
+    switchFacing[f]()
+  elseif (dir == direction.UP) then
+    -- up case
+    h = h + 1
+  else
+    -- down case
+    h = h - 1
+  end
+  return w, d, h
+end
+
+function setState(width, depth, height, s)
+-- write state to position
+  if (width > maxSize.W) then extendWidthPos(width) end
+  if (width < minSize.W) then extendWidthNeg(width) end
+  if (depth > maxSize.W) then extendDepthPos(depth) end
+  if (depth < minSize.D) then extendDepthNeg(depth) end
+  if (height > maxSize.H) then extendHeightPos(height) end
+  if (height < minSize.H) then extendHeightNeg(height) end
+  map[height][depth][width] = s
+end
+
+function getState(width, depth, height)
+-- get state from position
+  if (map[height] == nil or map[height][depth] == nil) then return nil end
+  return map[height][depth][width]
+end
+
+function setNextState(f, dir, s)
+-- write state to the next position
+  local w, d, h = getNextPos(f, dir)
+  setState(w, d, h, s)
+end
+
+function getNextState(f, dir)
+-- get state of next position from position
+  local w, d, h = getNextPos(f, dir)
+  getState(w, d, h)
+end
+
+function transState(d, s1, s2)
+-- translate state s1 to s2
+  if (map[d] == nil) then return end
+  for i = minSize.W, maxSize.W do
+    for j = minSize.D, maxSize.D do
+      if (getState(i, j, d) == s1) then
+        setState(i, j, d, s2)
+      end
+    end
+  end
+end
+
+function updatePos(dir)
+-- function to call when moving turtle
+-- updating position and state
+  setState(curtWidth, curtDepth, curtHeight, state.SEARCHED)
+  curtWidth, curtDepth, curtHeight = getNextPos(curtFacing, dir)
+  setState(curtWidth, curtDepth, curtHeight, state.TURTLE)
+  saveMap()
+  saveLocation()
+end
+
+function updateOnlyPos(dir)
+-- function to call when moving on the outside
+  curtWidth, curtDepth, curtHeight = getNextPos(curtFacing, dir)
+  saveLocation()
+end
+
+function setRefuelLevel()
+  local size1 = (maxSize.W - minSize.W + 1) * (maxSize.D - minSize.D + 1)
+  local size2 = (maxSize.W - minSize.W) * (maxSize.D - minSize.D) / 2
+  local size3 = maxSize.H - minSize.H + 1
+  refuelLevel =  size1 - size2 + size3
+end
+
+function getRefuelLevel()
+  return refuelLevel
+end
+
+function printMap()
+-- output the map in current height
+  if(msgType.MAP) then
+    term.clear()
+    term.setCursorPos(1,1)
+    local data = "Height : "..curtHeight
+    for id = maxSize.D, minSize.D, -1 do
+      data = data.."\n"
+      for iw = minSize.W, maxSize.W do
+        data = data.."["..map[curtHeight][id][iw].."]"
+      end
+    end
+    print(data)
+  end
+end
+
+-- turning functions
+
+function turnTo(f)
+  local t = (f - curtFacing) % 4
+  if (t == 1) then turnRight()
+  elseif (t == 2) then turnAround()
+  elseif (t == 3) then turnLeft()
+  end
+end
+
+function turnLeft()
+  turtle.turnLeft()
+  curtFacing = (curtFacing + 3) % 4
+  saveLocation()
+end
+
+function turnRight()
+  turtle.turnRight()
+  curtFacing = (curtFacing + 1) % 4
+  saveLocation()
+end
+
+function turnAround()
+  turnLeft()
+  turnLeft()
+end
+
+-- map extending functions
+
+function extendWidthPos(nextW)
+  for mapH = minSize.H, maxSize.H do
+    for mapD = minSize.D, maxSize.D do
+      for mapW = maxSize.W + 1, nextW do
+        map[mapH][mapD][mapW] = state.UNSEARCHED
+      end
+    end
+  end
+  maxSize.W = nextW
+  setRefuelLevel()
+end
+
+function extendWidthNeg(nextW)
+  for mapH = minSize.H, maxSize.H do
+    for mapD = minSize.D, maxSize.D do
+      for mapW = nextW, minSize.W - 1 do
+        map[mapH][mapD][mapW] = state.UNSEARCHED
+      end
+    end
+  end
+  minSize.W = nextW
+  setRefuelLevel()
+end
+
+function extendDepthPos(nextD)
+  for mapH = minSize.H, maxSize.H do
+    for mapD = maxSize.D + 1, nextD do
+      map[mapH][mapD] = {}
+      for mapW = minSize.W, maxSize.W do
+        map[mapH][mapD][mapW] = state.UNSEARCHED
+      end
+    end
+  end
+  maxSize.D = nextD
+  setRefuelLevel()
+end
+
+function extendDepthNeg(nextD)
+  for mapH = minSize.H, maxSize.H do
+    for mapD = nextD, minSize.D - 1 do
+      map[mapH][mapD] = {}
+      for mapW = minSize.W, maxSize.W do
+        map[mapH][mapD][mapW] = state.UNSEARCHED
+      end
+    end
+  end
+  minSize.D = nextD
+  setRefuelLevel()
+end
+
+function extendHeightPos(nextH)
+  for mapH = maxSize.H + 1, nextH do
+    map[mapH] = {}
+    for mapD = minSize.D, maxSize.D do
+      map[mapH][mapD] = {}
+      for mapW = minSize.W, maxSize.W do
+        map[mapH][mapD][mapW] = state.UNSEARCHED
+      end
+    end
+  end
+  maxSize.H = nextH
+  setRefuelLevel()
+end
+
+function extendHeightNeg(nextH)
+  for mapH = nextH, minSize.H - 1 do
+    map[mapH] = {}
+    for mapD = minSize.D, maxSize.D do
+      map[mapH][mapD] = {}
+      for mapW = minSize.W, maxSize.W do
+        map[mapH][mapD][mapW] = state.UNSEARCHED
+      end
+    end
+  end
+  minSize.H = nextH
+  setRefuelLevel()
+end
+
+-- logging functions
+
+function saveLocation()
+  local file
+  if (fs.exists(locationData)) then
+    if (fs.exists(locationData)) then fs.delete(locationBak) end
+    fs.copy(locationData, locationBak)
+  end
+  file = fs.open(locationData, "w")
+  file.writeLine(curtWidth)
+  file.writeLine(curtDepth)
+  file.writeLine(curtHeight)
+  file.writeLine(curtFacing)
+  file.writeLine(minSize.W)
+  file.writeLine(minSize.D)
+  file.writeLine(minSize.H)
+  file.writeLine(maxSize.W)
+  file.writeLine(maxSize.D)
+  file.writeLine(maxSize.H)
+  for i, var in ipairs (condition) do
+    file.writeLine(var)
+  end
+  file.close()
+end
+
+function saveMap()
+  local file
+  if (fs.exists(mapData)) then
+    if (fs.exists(mapBak)) then fs.delete(mapBak) end
+    fs.copy(mapData, mapBak)
+  end
+  file = fs.open(mapData, "w")
+  for h = minSize.H, maxSize.H do
+    for d = minSize.D, maxSize.D do
+      for w = minSize.W, maxSize.W do
+        file.writeLine(getState(w, d, h))
+      end
+    end
+  end
+  file.close()
+end
+
+function loadLocation()
+  local file = fs.open(locationData, "r")
+  local i = 1
+  curtWidth = tonumber(file.readLine())
+  curtDepth = tonumber(file.readLine())
+  curtHeight = tonumber(file.readLine())
+  curtFacing = tonumber(file.readLine())
+  minSize.W = tonumber(file.readLine())
+  minSize.D = tonumber(file.readLine())
+  minSize.H = tonumber(file.readLine())
+  maxSize.W = tonumber(file.readLine())
+  maxSize.D = tonumber(file.readLine())
+  maxSize.H = tonumber(file.readLine())
+  repeat
+    local line = file.readLine()
+    if (line ~= nil) then
+      condition[i] = tonumber(line)
+      i = i + 1
+    end
+  until(line == nil)
+  file.close()
+end
+
+function loadMap()
+  local file = fs.open(mapData, "r")
+  for i = minSize.H, maxSize.H do
+    for j = minSize.D, maxSize.D do
+      for k = minSize.W, maxSize.W do
+        map[i][j][k] = tonumber(file.readLine())
+        if (map[i][j][k] == nil) then
+          message("Failed to load map", msgType.ERROR)
+          error()
+        end
+      end
+    end
+  end
+  file.close()
+end
+
+dofile("/util/util")

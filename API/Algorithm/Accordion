@@ -1,0 +1,37 @@
+local version = "1.00"
+
+function getRoute(w, d, min, max, isGoal)
+  local route = {}
+  local f
+  if (w % 2 == 0) then
+  -- even width
+    if (d < max.D) then
+      f = facing.NORTH
+    elseif (w < max.W) then
+      f = facing.EAST
+    end 
+  else
+  -- odd width
+    if (d > min.D) then
+      f = facing.SOUTH
+    elseif (w > min.W) then
+      f = facing.EAST
+    end
+  end
+  if (f ~= nil and isGoal(getAdjacentPos(f, w, d))) then
+    table.insert(route, f)
+  end
+  return route
+end
+
+function getAdjacentPos(f, w, d)
+  local switchFacing = {}
+  switchFacing[facing.NORTH] = function() d = d + 1 end
+  switchFacing[facing.EAST]  = function() w = w + 1 end
+  switchFacing[facing.SOUTH] = function() d = d - 1 end
+  switchFacing[facing.WEST]  = function() w = w - 1 end
+  switchFacing[f]()
+  return w, d
+end
+
+dofile("/util/util")

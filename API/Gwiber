@@ -1,0 +1,154 @@
+local move = {}
+local attack = {}
+local dig = {}
+local digEnchant = {}
+local detect = {}
+local inspect = {}
+local enchant = nil
+local configData
+
+local version = "1.02"
+
+-- toDo テーブル関連
+
+function init(turtle)
+  move[direction.FORWARD] = turtle.forward
+  move[direction.DOWN] = turtle.down
+  move[direction.UP] = turtle.up
+  attack[direction.FORWARD] = turtle.attack
+  attack[direction.DOWN] = turtle.attackDown
+  attack[direction.UP] = turtle.attackUp
+  dig[direction.FORWARD] = turtle.dig
+  dig[direction.DOWN] = turtle.digDown
+  dig[direction.UP] = turtle.digUp
+  digEnchant[direction.FORWARD] = turtle.dig
+  digEnchant[direction.DOWN] = turtle.digDown
+  digEnchant[direction.UP] = turtle.digUp
+  detect[direction.FORWARD] = turtle.detect
+  detect[direction.DOWN] = turtle.detectDown
+  detect[direction.UP] = turtle.detectUp
+  inspect[direction.FORWARD] = turtle.inspect
+  inspect[direction.DOWN] = turtle.inspectDown
+  inspect[direction.UP] = turtle.inspectUp
+  dofile(configData)
+end
+
+function setPath(name)
+  configData = "/config/"..name.."_config"
+end
+
+function checkEnchant()
+  local var = peripheral.getNames()
+  local program
+  for i = 1, #var do
+    local pmnames = peripheral.getMethods(var[i])
+    -- More Turtles 2.0.0以前
+    if (pmnames ~= nil and pmnames[1] == "digSilkTouch") then
+      program = peripheral.wrap(var[i])
+      digEnchant[direction.FORWARD] = program.digSilkTouch
+      digEnchant[direction.DOWN] = program.digSilkTouchDown
+      digEnchant[direction.UP] = program.digSilkTouchUp
+      enchant = "SilkTouch"
+      return
+    end
+    if (pmnames ~= nil and pmnames[1] == "digFortune") then
+      program = peripheral.wrap(var[i])
+      digEnchant[direction.FORWARD] = program.digFortune
+      digEnchant[direction.DOWN] = program.digFortuneDown
+      digEnchant[direction.UP] = program.digFortuneUp
+      enchant = "Fortune"
+      return
+    end
+    -- More Turtles 2.0.0以降
+    if (peripheral.call(var[i], "getName") == "SilkTouch") then
+      program = peripheral.wrap(var[i])
+      digEnchant[direction.FORWARD] = program.dig
+      digEnchant[direction.DOWN] = program.digDown
+      digEnchant[direction.UP] = program.digUp
+      enchant = "SilkTouch"
+      return
+    end
+    if (peripheral.call(var[i], "getName") == "Fortune") then
+      program = peripheral.wrap(var[i])
+      digEnchant[direction.FORWARD] = program.dig
+      digEnchant[direction.DOWN] = program.digDown
+      digEnchant[direction.UP] = program.digUp
+      enchant = "Fortune"
+      return
+    end
+  end
+end
+
+function getEnchantName()
+  return enchant
+end
+
+function moveTurtle(dir)
+-- タートル移動用ファンクション
+-- 返り値は移動の成否。移動に成功すればtrueを返し、失敗あるいは中止したならばfalseを返す
+  local doMove = false
+  local iFlag, iData = inspect[dir]()
+  local dFlag = detect[dir]()
+  repeat
+    if (iFlag and dFlag) then
+    -- 前方にブロックがある場合
+      digSuccess = digTurtle(dir, iData)
+      -- そのブロックを破壊できなければ処理を抜ける
+      if (not digSuccess) then break end
+    elseif (iFlag and iData.metadata == 0) then
+      -- 進入禁止に設定した液体源ブロックなら処理を抜ける
+      if (not isContains(iData, table2)) then break end
+    end
+    doMove = move[dir]()
+    if (not doMove) then
+      attack[dir]()
+    end
+  until (doMove)
+  return doMove
+end
+
+function digTurtle(dir, iData)
+-- 採掘用ファンクション
+-- 返り値は採掘の成否
+  if (isContains(iData, table1)) then return false end
+  if (isContains(iData, table3)) then 
+    return digEnchant[dir]()
+  end
+  return dig[dir]()
+end
+
+function getInspect(dir)
+-- inspectのデータを返す
+  local iFlag, iData = inspect[dir]()
+  return iData
+end
+
+function isSolid(dir)
+-- 単にturtle.detectするだけのファンクション
+  return detect[dir]()
+end
+
+function isContains(var, table)
+-- 引数1（ブロックなど）が引数2（テーブル）の中に存在するかを確認する
+  if (var == nil) then return false end
+  for i = 1, #table.list do
+  local lb = table.list[i][1]
+  local lm = table.list[i][2]
+    if (var.name == lb) then
+      if (lm == nil) then
+        return table.isWhite
+      else
+        for j = 1, #lm do
+          if (var.meta == lm[j]) then
+            return table.isWhite
+          end
+        end
+      end
+    end
+  end
+  return (not table.isWhite)
+end
+
+-- コンストラクタ
+dofile("/util/util")
+checkEnchant()

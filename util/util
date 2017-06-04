@@ -1,0 +1,16 @@
+facing = {NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3}
+direction = {FORWARD = 0, BACK = 1, DOWN = 2, UP = 3}
+msgType = {INFO = true, MAP = true, ROUTE = false, DEBUG = true, ERROR = true}
+version = "1.00"
+
+message = function(msg, flag)
+  if (flag) then print(msg) end
+end
+
+iomessage = function(msg, flag)
+  if (flag) then io.write(msg) end
+end
+
+getVersion = function()
+  return version
+end

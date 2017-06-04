@@ -1,0 +1,433 @@
+local quarryWidth
+local quarryDepth
+
+local state = {UNSEARCHED = 0, SEARCHED = 1, TURTLE = 2, WALLED = 3, OBSTRUCTION = 4}
+local workState = {WORK = 0, MOVE = 1, BACK = 2, FINISH = 3}
+local dataKey = {WORK = 1, NEXT = 2}
+
+dofile("/util/util")
+
+local currentSlot = 1
+local fuelSlot = 16
+local fileName = shell.getRunningProgram()
+local configData = "/config/"..fileName.."_config"
+
+local version = "1.02"
+
+function init()
+  Gwiber.setPath(fileName)
+  Gwiber.init(turtle)
+  Gwiber.checkEnchant()
+  Alabaster.setPath(fileName)
+  Alabaster.init(quarryWidth, quarryDepth, 1, facing.NORTH)
+  Alabaster.initPos(0, -1, 0, facing.NORTH)
+  Alabaster.setCondition(dataKey.WORK, workState.MOVE)
+  Alabaster.setCondition(dataKey.NEXT, -2)
+  -- starting direction
+  iomessage("Checking fuel level", msgType.INFO)
+  for i = 1, 4 do infoSleep(0.25) iomessage(".", msgType.INFO) end
+  iomessage("\n", msgType.INFO)
+  if(not hasFuel()) then error() end
+  message("Fuel remain : " .. tostring(turtle.getFuelLevel()), msgType.INFO)
+  infoSleep(0.75)
+  iomessage("Checking Enchant Program", msgType.INFO)
+  for i = 1, 4 do infoSleep(0.25) iomessage(".", msgType.INFO) end
+  iomessage("\n", msgType.INFO)
+  local result = Gwiber.getEnchantName()
+  if (result == nil) then message("Normal mode.", msgType.INFO)
+  elseif (result == "SilkTouch") then message("Enable Silk Touch mode.", msgType.INFO)
+  elseif (result == "Fortune") then message("Enable Fortune mode.", msgType.INFO)
+  end
+  infoSleep(0.75)
+  --
+  turtle.select(1)
+  moveOnlyPos(direction.FORWARD)
+end
+
+function initResume()
+  Gwiber.setPath(fileName)
+  Gwiber.init(turtle)
+  Alabaster.setPath(fileName)
+  Alabaster.initResume()
+  turtle.select(1)
+  if (Alabaster.getCondition(dataKey.WORK) ~= workState.FINISH) then
+    hasFuel()
+    hasSpace()
+  end
+  Alabaster.printMap()
+end
+
+function hasFuel()
+  local fuelRemain = turtle.getFuelLevel()
+  if (fuelRemain < Alabaster.getRefuelLevel() + fuelMargin) then
+    if (fuelSlot == -1) then
+      fuelError(fuelRemain)
+      return false
+    end
+    turtle.select(fuelSlot)
+    while (fuelRemain < Alabaster.getRefuelLevel() + fuelMargin) do
+      if (fuelSlot == -1) then
+        fuelError(fuelRemain)
+        return false
+      end
+      if (turtle.getItemCount(fuelSlot) == 1) then
+        transferFuel()
+      end
+      local ref = turtle.refuel(1)
+      fuelRemain = turtle.getFuelLevel()
+      if (not (ref)) then
+        fuelError(fuelRemain)
+        return false
+      elseif (turtle.getItemCount(fuelSlot) == 0) then
+        fuelSlot = -1
+      end
+    end
+    turtle.select(1)
+    message("...refueled.", msgType.INFO)
+  end
+  return true
+end
+
+function fuelError(fuelRemain)
+  message("Out of Fuel! Fuel remain : " .. fuelRemain, msgType.ERROR)
+  Alabaster.setCondition(dataKey.WORK, workState.BACK)
+end
+
+function transferFuel()
+  for i = 1, 16 do
+    if (turtle.getItemCount(i) ~= 0) then
+      turtle.select(i)
+      if (i ~= fuelSlot and turtle.transferTo(fuelSlot)) then
+        turtle.select(fuelSlot)
+        return true
+      end
+    end
+  end
+  return false
+end
+
+function hasSpace()
+  if (turtle.getItemCount(currentSlot) == 0) then return true end
+  for i = 1, 16 do
+    if (turtle.getItemCount(i) == 0) then
+      currentSlot = i
+      return true
+    end
+  end
+  return false
+end
+
+-- turtleAPIŠÖ˜A
+
+function digVertical(dir)
+  local iData = Gwiber.getInspect(dir)
+  local isResource = Gwiber.isContains(iData, table4)
+  if (not isResource) then
+  -- Ž‘Œ¹‚È‚çŒ@‚é
+    if (Gwiber.digTurtle(dir, iData)) then
+    -- ÌŒ@¬Œ÷‚µ‚½‚È‚çŠY“–‰ÓŠ‚ðƒ`ƒFƒbƒNÏ‚Ý‚É
+      Alabaster.setNextState(nil, dir, state.SEARCHED)
+      Alabaster.saveMap()
+    else
+      if (Gwiber.isSolid(dir)) then
+        -- Ž¸”s‚µ‚½‰ÓŠ‚ªŒÅ‘Ì‚È‚çáŠQ•¨‚É
+        Alabaster.setNextState(nil, dir, state.OBSTRUCTION)
+        Alabaster.saveMap()
+      else
+        -- ‰t‘Ì‚È‚çƒ`ƒFƒbƒNÏ‚Ý‚É
+        Alabaster.setNextState(nil, dir, state.SEARCHED)
+        Alabaster.saveMap()
+      end
+    end
+  else
+    Alabaster.setNextState(nil, dir, state.SEARCHED)
+    Alabaster.saveMap()
+  end
+end
+
+-- ’Tõ
+function quarry()
+  while(Alabaster.getCondition(dataKey.WORK) ~= workState.FINISH) do
+    if (Alabaster.getCondition(dataKey.WORK) == workState.MOVE) then
+      quarryMove()
+    end
+    if (Alabaster.getCondition(dataKey.WORK) == workState.WORK) then
+      quarryWork()
+    end
+    if (Alabaster.getCondition(dataKey.WORK) == workState.BACK) then
+      quarryBack()
+    end
+  end
+  quarryFinish()
+end
+
+function quarryMove()
+  local h = Alabaster.getHeight()
+  local prevH = h
+  repeat
+    local flag
+    flag = movePos(direction.DOWN)
+    if (flag) then
+      h = Alabaster.getHeight()
+    else
+      if (h == prevH) then
+        Alabaster.setCondition(dataKey.WORK, workState.FINISH) return
+      else
+        Alabaster.setCondition(dataKey.NEXT, h)
+      end
+    end
+  until (h == Alabaster.getCondition(dataKey.NEXT))
+  digVertical(direction.DOWN)
+  Alabaster.setCondition(dataKey.WORK, workState.WORK)
+end
+
+function quarryWork()
+  repeat
+    local w, d, h = Alabaster.getPos()
+    local minSize, maxSize = Alabaster.getMapSize()
+    local route = Accordion.getRoute(w, d, minSize, maxSize, isGoal)
+    trace(route)
+    act()
+    if (Alabaster.getCondition(dataKey.WORK) == workState.BACK) then return end
+  until(next(route) == nil)
+  repeat
+    local w, d, h = Alabaster.getPos()
+    local f = Alabaster.getFacing()
+    local minSize, maxSize = Alabaster.getMapSize()
+    local route = Breadth_first.getRoute(w, d, f, minSize, maxSize, canPass, isGoal)
+    trace(route)
+    act()
+    if (Alabaster.getCondition(dataKey.WORK) == workState.BACK) then return end
+  until(next(route) == nil)
+  toHomePos()
+  local h = Alabaster.getHeight()
+  Alabaster.transState(h - 1, state.UNSEARCHED, state.WALLED)
+  Alabaster.transState(h, state.UNSEARCHED, state.WALLED)
+  Alabaster.transState(h + 1, state.UNSEARCHED, state.WALLED)
+  Alabaster.saveMap()
+  Alabaster.setCondition(dataKey.WORK, workState.MOVE)
+  Alabaster.setCondition(dataKey.NEXT, Alabaster.getCondition(dataKey.NEXT) - 3)
+end
+
+function quarryBack()
+  toHome()
+  unload()
+  supply()
+  Alabaster.turnTo(facing.NORTH)
+  moveOnlyPos(direction.FORWARD)
+  Alabaster.setCondition(dataKey.WORK, workState.MOVE)
+end
+
+function quarryFinish()
+  toHome()
+  unload()
+  Alabaster.turnTo(facing.NORTH)
+end
+
+function trace(route)
+  local mv = false
+  for i, f in ipairs(route) do
+    Alabaster.turnTo(f)
+    flag = movePos(direction.FORWARD)
+    if (flag) then
+      mv = true
+    else
+      break
+    end
+  end
+  return mv
+end
+
+function act()
+  digVertical(direction.DOWN)
+  digVertical(direction.UP)
+  if (not hasSpace()) then Alabaster.setCondition(dataKey.WORK, workState.BACK) end
+  if (not hasFuel()) then Alabaster.setCondition(dataKey.WORK, workState.BACK) end
+end
+
+function canPass(w, d)
+  local h = Alabaster.getHeight()
+  if (Alabaster.getState(w, d, h) == state.SEARCHED) then return true end
+  return false
+end
+
+function isGoal(w, d)
+  local h = Alabaster.getHeight()
+  if (Alabaster.getState(w, d, h) == state.UNSEARCHED) then return true end
+  return false
+end
+
+function isHome(w, d)
+  return (w == 0 and d == 0)
+end
+
+function toHomePos()
+  local w, d, h = Alabaster.getPos()
+  if (w ~= 0 or d ~= 0) then
+    repeat
+      local w, d, h = Alabaster.getPos()
+      local f = Alabaster.getFacing()
+      local minSize, maxSize = Alabaster.getMapSize()
+      local route = Breadth_first.getRoute(w, d, f, minSize, maxSize, canPass, isHome)
+      trace(route)
+    until(next(route) == nil)
+    w, d, h = Alabaster.getPos()
+    if (w ~= 0 or d ~= 0) then
+      message("Incorrect route!", msgType.ERROR)
+      error()
+    end
+
+  end
+end
+
+function toHome()
+  local w, d, h = Alabaster.getPos()
+  if (h ~= 0) then
+    toHomePos()
+  end
+  while(Alabaster.getHeight() < 0) do
+      movePos(direction.UP)
+  end
+  local w, d, h = Alabaster.getPos()
+  if (w == 0 and d == 0) then
+    Alabaster.turnTo(facing.SOUTH)
+    moveOnlyPos(direction.FORWARD)
+  end
+end
+
+function unload()
+  Alabaster.turnTo(unloadF)
+  local msgFlag = msgType.INFO
+  iomessage("Unloading items", msgType.INFO)
+  repeat
+    for i = 1, 16 do
+      if (i % 4 == 0) then iomessage(".", msgType.INFO) end
+      if (i ~= fuelSlot) then turtle.select(i) turtle.drop() end
+    end
+    iomessage("\n", msgType.INFO)
+    msgFlag = false
+    currentSlot = 1
+  until(hasSpace())
+end
+
+function supply()
+  Alabaster.turnTo(supplyF)
+  if(fuelSlot == -1) then
+    for i = 16, 1, -1 do
+      if (turtle.getItemCount(i) == 0) then
+        fuelSlot = i
+        break
+      end
+    end
+  end
+  turtle.select(fuelSlot)
+  turtle.suck(turtle.getItemSpace())
+  if (not hasFuel()) then
+    message("Incorrect item for fuel.", msgType.ERROR)
+    error()
+  end
+end
+
+-- moving functions
+
+function movePos(dir)
+  local flag = Gwiber.moveTurtle(dir)
+  if (flag) then
+    Alabaster.updatePos(dir)
+  else
+    Alabaster.setNextState(Alabaster.getFacing(), dir, state.OBSTRUCTION)
+    Alabaster.saveMap()
+  end
+  Alabaster.printMap()
+  return flag
+end
+
+function moveOnlyPos(dir)
+  local flag = Gwiber.moveTurtle(dir)
+  if (flag) then
+    Alabaster.updateOnlyPos(dir)
+  end
+  return flag
+end
+
+function createConfigFile()
+  file = fs.open(configData, "w")
+  file.writeLine("resume = true")
+  file.writeLine("fuelMargin = 80")
+  file.writeLine("unloadF = facing.SOUTH")
+  file.writeLine("supplyF = facing.WEST")
+  file.writeLine("")
+  file.writeLine("-- Blocks of mining prohibitions")
+  file.writeLine("table1 = {}")
+  file.writeLine("table1.list = {{\"minecraft:bedrock\"}, {\"minecraft:mob_spawner\"}, {\"minecraft:chest\"}}")
+  file.writeLine("table1.isWhite = true")
+  file.writeLine("")
+  file.writeLine("-- Fluids of moving permited")
+  file.writeLine("table2 = {}")
+  file.writeLine("table2.list = {{\"minecraft:water\"}, {\"minecraft:flowing_water\"}, {\"minecraft:lava\"}, {\"minecraft:flowing_lava\"}}")
+  file.writeLine("table2.isWhite = true")
+  file.writeLine("")
+  file.writeLine("-- Blocks of mining with enchant")
+  file.writeLine("-- Need module added by \"More Turtles\"")
+  file.writeLine("table3 = {}")
+  file.writeLine("table3.list = {{\"minecraft:redstone_ore\"}, {\"minecraft:lapis_ore\"}, {\"minecraft:diamond_ore\"}, {\"minecraft:emerald_ore\"}, {\"minecraft:quartz_ore\"}}")
+  file.writeLine("table3.isWhite = true")
+  file.writeLine("")
+  file.writeLine("-- Blocks of not collect")
+  file.writeLine("table4 = {}")
+  file.writeLine("table4.list = {{}}")
+  file.writeLine("table4.isWhite = true")
+  file.close()
+end
+
+function initAPI(name)
+  if (not fs.exists(name)) then
+    message("Unable to read API : "..name, msgType.ERROR)
+    error()
+  end
+  os.loadAPI(name)
+end
+
+function infoSleep(num)
+  if (msgType.INFO) then sleep(num) end
+end
+
+-- main function
+local args = { ... }
+if (not fs.exists(configData)) then
+  createConfigFile()
+end
+dofile(configData)
+dofile("/util/util")
+initAPI("/API/Gwiber")
+initAPI("/API/Alabaster")
+initAPI("/API/Algorithm/Breadth_first")
+initAPI("/API/Algorithm/Accordion")
+
+if (#args == 0) then
+  message("Resume", msgType.DEBUG)
+  if (resume) then
+    initResume()
+  else
+    message("Please configuration range.\n".."Usage: "..shell.getRunningProgram().." <width> <depth>", msgType.ERROR)
+    error()
+  end
+elseif (#args == 1) then
+  message("Please configuration range.\n".."Usage: "..shell.getRunningProgram().." <width> <depth>", msgType.ERROR)
+  error()
+elseif (#args == 2) then
+  local file
+  file = fs.open("startup", "w")
+  file.writeLine("shell.run(\""..fileName.."\")")
+  file.close()
+  quarryWidth = math.floor(tonumber(args[1]))
+  quarryDepth = math.floor(math.abs(tonumber(args[2])))
+  init()
+else
+  message("Too much arguments!", msgType.ERROR)
+  error()
+end
+quarry()
+Alabaster.saveLocation()
+Alabaster.saveMap()
+fs.delete("startup")
