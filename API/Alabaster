@@ -1,4 +1,4 @@
-local version = "1.00"
+local version = "1.01"
 
 local map = {}
 local minSize = {W = 0, D = 0, H = 0}
@@ -200,17 +200,21 @@ end
 function printMap()
 -- output the map in current height
   if(msgType.MAP) then
-    term.clear()
-    term.setCursorPos(1,1)
-    local data = "Height : "..curtHeight
-    for id = maxSize.D, minSize.D, -1 do
-      data = data.."\n"
-      for iw = minSize.W, maxSize.W do
-        data = data.."["..map[curtHeight][id][iw].."]"
-      end
-    end
-    print(data)
+    outputMap(curtHeight)
   end
+end
+
+function outputMap(h)
+  term.clear()
+  term.setCursorPos(1,1)
+  local data = "Height : "..h
+  for id = maxSize.D, minSize.D, -1 do
+    data = data.."\n"
+    for iw = minSize.W, maxSize.W do
+      data = data.."["..map[h][id][iw].."]"
+    end
+  end
+  print(data)
 end
 
 -- turning functions
