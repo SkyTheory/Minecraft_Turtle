@@ -1,12 +1,13 @@
-local version = "1.02"
+local version = "1.03"
 
-local quarryWidth
-local quarryDepth
+dofile("/util/util")
+
+local rangeW
+local rangeD
+local rangeH
 local state = {UNSEARCHED = 0, SEARCHED = 1, TURTLE = 2, WALLED = 3, OBSTRUCTION = 4}
 local workState = {WORK = 0, MOVE = 1, BACK = 2, FINISH = 3}
 local dataKey = {WORK = 1, NEXT = 2}
-
-dofile("/util/util")
 
 local currentSlot = 1
 local fuelSlot = 16
@@ -19,7 +20,7 @@ function init()
   Gwiber.init(turtle)
   Gwiber.checkEnchant()
   Alabaster.setPath(fileName)
-  Alabaster.init(quarryWidth, quarryDepth, 1, facing.NORTH)
+  Alabaster.init(rangeW, rangeD, rangeH, facing.NORTH)
   Alabaster.initPos(0, -1, 0, facing.NORTH)
   Alabaster.setCondition(dataKey.WORK, workState.MOVE)
   Alabaster.setCondition(dataKey.NEXT, -2)
@@ -420,8 +421,9 @@ elseif (#args == 2) then
   file = fs.open("startup", "w")
   file.writeLine("shell.run(\""..fileName.."\")")
   file.close()
-  quarryWidth = math.floor(tonumber(args[1]))
-  quarryDepth = math.floor(math.abs(tonumber(args[2])))
+  rangeW = math.floor(tonumber(args[1]))
+  rangeD = math.floor(math.abs(tonumber(args[2])))
+  rangeH = 1
   init()
 else
   message("Too much arguments!", msgType.ERROR)
