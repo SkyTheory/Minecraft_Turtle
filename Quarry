@@ -1,4 +1,4 @@
-local version = "1.03"
+local version = "1.04"
 
 dofile("/util/util")
 
@@ -334,7 +334,9 @@ end
 function movePos(dir)
   local flag = Gwiber.moveTurtle(dir)
   if (flag) then
+    Alabaster.setStateCurtPos(state.SEARCHED)
     Alabaster.updatePos(dir)
+    Alabaster.setStateCurtPos(state.TURTLE)
   else
     Alabaster.setNextState(Alabaster.getFacing(), dir, state.OBSTRUCTION)
     Alabaster.saveMap()
@@ -346,7 +348,7 @@ end
 function moveOnlyPos(dir)
   local flag = Gwiber.moveTurtle(dir)
   if (flag) then
-    Alabaster.updateOnlyPos(dir)
+    Alabaster.updatePos(dir)
   end
   return flag
 end

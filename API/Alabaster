@@ -1,4 +1,4 @@
-local version = "1.01"
+local version = "1.02"
 
 local map = {}
 local minSize = {W = 0, D = 0, H = 0}
@@ -131,6 +131,15 @@ end
 
 function setState(width, depth, height, s)
 -- write state to position
+  writeState(width, depth, height, s)
+  saveMap()
+end
+
+function setStateCurtPos(s)
+  setState(curtWidth, curtDepth, curtHeight, s)
+end
+
+function writeState(width, depth, height, s)
   if (width > maxSize.W) then extendWidthPos(width) end
   if (width < minSize.W) then extendWidthNeg(width) end
   if (depth > maxSize.W) then extendDepthPos(depth) end
@@ -164,24 +173,15 @@ function transState(d, s1, s2)
   for i = minSize.W, maxSize.W do
     for j = minSize.D, maxSize.D do
       if (getState(i, j, d) == s1) then
-        setState(i, j, d, s2)
+        writeState(i, j, d, s2)
       end
     end
   end
+  saveMap()
 end
 
 function updatePos(dir)
 -- function to call when moving turtle
--- updating position and state
-  setState(curtWidth, curtDepth, curtHeight, state.SEARCHED)
-  curtWidth, curtDepth, curtHeight = getNextPos(curtFacing, dir)
-  setState(curtWidth, curtDepth, curtHeight, state.TURTLE)
-  saveMap()
-  saveLocation()
-end
-
-function updateOnlyPos(dir)
--- function to call when moving on the outside
   curtWidth, curtDepth, curtHeight = getNextPos(curtFacing, dir)
   saveLocation()
 end
