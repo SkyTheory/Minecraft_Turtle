@@ -1,4 +1,4 @@
-local version = "1.00"
+local version = "1.01"
 
 function getRoute(w, d, min, max, isGoal)
   local route = {}
@@ -14,7 +14,7 @@ function getRoute(w, d, min, max, isGoal)
   -- odd width
     if (d > min.D) then
       f = facing.SOUTH
-    elseif (w > min.W) then
+    elseif (w < max.W) then
       f = facing.EAST
     end
   end
