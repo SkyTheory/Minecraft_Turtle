@@ -1,13 +1,14 @@
-local version = "1.04"
+local version = "1.06"
 
 dofile("/util/util")
 
 local rangeW
 local rangeD
 local rangeH
+
 local state = {UNSEARCHED = 0, SEARCHED = 1, TURTLE = 2, WALLED = 3, OBSTRUCTION = 4}
-local workState = {WORK = 0, MOVE = 1, BACK = 2, FINISH = 3}
 local dataKey = {WORK = 1, NEXT = 2}
+local workState = {WORK = 0, MOVE = 1, BACK = 2, FINISH = 3}
 
 local currentSlot = 1
 local fuelSlot = 16
@@ -18,7 +19,6 @@ local configData = "/config/"..fileName.."_config"
 function init()
   Gwiber.setPath(fileName)
   Gwiber.init(turtle)
-  Gwiber.checkEnchant()
   Alabaster.setPath(fileName)
   Alabaster.init(rangeW, rangeD, rangeH, facing.NORTH)
   Alabaster.initPos(0, -1, 0, facing.NORTH)
@@ -26,20 +26,20 @@ function init()
   Alabaster.setCondition(dataKey.NEXT, -2)
   -- starting direction
   iomessage("Checking fuel level", msgType.INFO)
-  for i = 1, 4 do infoSleep(0.25) iomessage(".", msgType.INFO) end
+  for i = 1, 4 do msgSleep(0.25, msgType.INFO) iomessage(".", msgType.INFO) end
   iomessage("\n", msgType.INFO)
   if(not hasFuel()) then error() end
   message("Fuel remain : " .. tostring(turtle.getFuelLevel()), msgType.INFO)
-  infoSleep(0.75)
+  msgSleep(0.75, msgType.INFO)
   iomessage("Checking Enchant Program", msgType.INFO)
-  for i = 1, 4 do infoSleep(0.25) iomessage(".", msgType.INFO) end
-  iomessage("\n", msgType.INFO)
+  for i = 1, 4 do msgSleep(0.25, msgType.INFO) iomessage(".", msgType.INFO) end
+  iomessage("\n", msgType.INFO, msgType.INFO)
   local result = Gwiber.getEnchantName()
   if (result == nil) then message("Normal mode.", msgType.INFO)
   elseif (result == "SilkTouch") then message("Enable Silk Touch mode.", msgType.INFO)
   elseif (result == "Fortune") then message("Enable Fortune mode.", msgType.INFO)
   end
-  infoSleep(0.75)
+  msgSleep(0.75, msgType.INFO)
   --
   turtle.select(1)
   moveOnlyPos(direction.FORWARD)
@@ -128,21 +128,17 @@ function digVertical(dir)
     if (Gwiber.digTurtle(dir, iData)) then
     -- çÃå@ê¨å˜ÇµÇΩÇ»ÇÁäYìñâ”èäÇÉ`ÉFÉbÉNçœÇ›Ç…
       Alabaster.setNextState(nil, dir, state.SEARCHED)
-      Alabaster.saveMap()
     else
-      if (Gwiber.isSolid(dir)) then
+      if (Gwiber.detect(dir)) then
         -- é∏îsÇµÇΩâ”èäÇ™å≈ëÃÇ»ÇÁè·äQï®Ç…
         Alabaster.setNextState(nil, dir, state.OBSTRUCTION)
-        Alabaster.saveMap()
       else
         -- âtëÃÇ»ÇÁÉ`ÉFÉbÉNçœÇ›Ç…
         Alabaster.setNextState(nil, dir, state.SEARCHED)
-        Alabaster.saveMap()
       end
     end
   else
     Alabaster.setNextState(nil, dir, state.SEARCHED)
-    Alabaster.saveMap()
   end
 end
 
@@ -205,7 +201,6 @@ function quarryWork()
   Alabaster.transState(h - 1, state.UNSEARCHED, state.WALLED)
   Alabaster.transState(h, state.UNSEARCHED, state.WALLED)
   Alabaster.transState(h + 1, state.UNSEARCHED, state.WALLED)
-  Alabaster.saveMap()
   Alabaster.setCondition(dataKey.WORK, workState.MOVE)
   Alabaster.setCondition(dataKey.NEXT, Alabaster.getCondition(dataKey.NEXT) - 3)
 end
@@ -223,20 +218,6 @@ function quarryFinish()
   toHome()
   unload()
   Alabaster.turnTo(facing.NORTH)
-end
-
-function trace(route)
-  local mv = false
-  for i, f in ipairs(route) do
-    Alabaster.turnTo(f)
-    flag = movePos(direction.FORWARD)
-    if (flag) then
-      mv = true
-    else
-      break
-    end
-  end
-  return mv
 end
 
 function act()
@@ -332,25 +313,40 @@ end
 -- moving functions
 
 function movePos(dir)
-  local flag = Gwiber.moveTurtle(dir)
+  local flag = Gwiber.move(dir)
   if (flag) then
-    Alabaster.setStateCurtPos(state.SEARCHED)
     Alabaster.updatePos(dir)
-    Alabaster.setStateCurtPos(state.TURTLE)
+    local liveState = Alabaster.getStateCurtPos()
+    if (liveState == nil or liveState == state.UNSEARCHED) then
+      Alabaster.setStateCurtPos(state.SEARCHED)
+    end
   else
     Alabaster.setNextState(Alabaster.getFacing(), dir, state.OBSTRUCTION)
-    Alabaster.saveMap()
   end
   Alabaster.printMap()
   return flag
 end
 
 function moveOnlyPos(dir)
-  local flag = Gwiber.moveTurtle(dir)
+  local flag = Gwiber.move(dir)
   if (flag) then
     Alabaster.updatePos(dir)
   end
   return flag
+end
+
+function trace(route)
+  local mv = false
+  for i, var in ipairs(route) do
+    if (var.face ~= nil) then Alabaster.turnTo(var.face) end
+    flag = movePos(var.dir)
+    if (flag) then
+      mv = true
+    else
+      break
+    end
+  end
+  return mv
 end
 
 function createConfigFile()
@@ -378,7 +374,7 @@ function createConfigFile()
   file.writeLine("")
   file.writeLine("-- Blocks of not collect")
   file.writeLine("table4 = {}")
-  file.writeLine("table4.list = {{}}")
+  file.writeLine("table4.list = {}")
   file.writeLine("table4.isWhite = true")
   file.close()
 end
@@ -389,10 +385,6 @@ function initAPI(name)
     error()
   end
   os.loadAPI(name)
-end
-
-function infoSleep(num)
-  if (msgType.INFO) then sleep(num) end
 end
 
 -- main function

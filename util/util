@@ -11,6 +11,20 @@ iomessage = function(msg, flag)
   if (flag) then io.write(msg) end
 end
 
+msgSleep = function(num, flag)
+  if (flag) then sleep(num) end
+end
+
 getVersion = function()
   return version
+end
+
+function getAdjacentPos(f, w, d)
+  local switchFacing = {}
+  switchFacing[facing.NORTH] = function() d = d + 1 end
+  switchFacing[facing.EAST]  = function() w = w + 1 end
+  switchFacing[facing.SOUTH] = function() d = d - 1 end
+  switchFacing[facing.WEST]  = function() w = w - 1 end
+  switchFacing[f]()
+  return w, d
 end

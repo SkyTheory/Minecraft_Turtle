@@ -1,4 +1,4 @@
-local version = "1.00"
+local version = "1.01"
 
 local node
 local openedNodeList
@@ -40,7 +40,7 @@ end
 
 function closeNode(cost, w, d, canPass, isGoal)
   local prevF = node[w][d].face
-  local prevR = node[w][d].route
+  local prevRoute = node[w][d].route
   
   node[w][d].state = "close"
   
@@ -63,28 +63,18 @@ function closeNode(cost, w, d, canPass, isGoal)
     local nextC = rateC[i]
     local nextF = (prevF + i) % 4
     local nextW, nextD = getAdjacentPos(nextF, w, d)
-    local nextR = {unpack(prevR)}
-    table.insert(nextR, nextF)
+    local nextRoute = {unpack(prevRoute)}
+    table.insert(nextRoute, {face = nextF, dir = direction.FORWARD})
     if (getNodeState(nextW, nextD) == "none") then
       if (isGoal(nextW, nextD)) then
-        return nextR
+        return nextRoute
       end
       if (canPass(nextW, nextD)) then
-        openNode(nextC, nextW, nextD, nextF, nextR)
+        openNode(nextC, nextW, nextD, nextF, nextRoute)
       end
     end
   end
   return nil
-end
-
-function getAdjacentPos(f, w, d)
-  local switchFacing = {}
-  switchFacing[facing.NORTH] = function() d = d + 1 end
-  switchFacing[facing.EAST]  = function() w = w + 1 end
-  switchFacing[facing.SOUTH] = function() d = d - 1 end
-  switchFacing[facing.WEST]  = function() w = w - 1 end
-  switchFacing[f]()
-  return w, d
 end
 
 dofile("/util/util")

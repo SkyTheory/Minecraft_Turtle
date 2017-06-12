@@ -3,7 +3,6 @@ local version = "1.02"
 local map = {}
 local minSize = {W = 0, D = 0, H = 0}
 local maxSize = {W = 0, D = 0, H = 0}
-local state = {UNSEARCHED = 0, SEARCHED = 1, TURTLE = 2, WALLED = 3, OBSTRUCTION = 4}
 local curtWidth
 local curtDepth
 local curtHeight
@@ -62,7 +61,7 @@ function initMap()
     for md = minSize.D, maxSize.D do
       map[mh][md] = {}
       for mw = minSize.W, maxSize.W do
-        map[mh][md][mw] = state.UNSEARCHED
+        map[mh][md][mw] = 0
       end
     end
   end
@@ -135,24 +134,18 @@ function setState(width, depth, height, s)
   saveMap()
 end
 
-function setStateCurtPos(s)
-  setState(curtWidth, curtDepth, curtHeight, s)
-end
-
-function writeState(width, depth, height, s)
-  if (width > maxSize.W) then extendWidthPos(width) end
-  if (width < minSize.W) then extendWidthNeg(width) end
-  if (depth > maxSize.W) then extendDepthPos(depth) end
-  if (depth < minSize.D) then extendDepthNeg(depth) end
-  if (height > maxSize.H) then extendHeightPos(height) end
-  if (height < minSize.H) then extendHeightNeg(height) end
-  map[height][depth][width] = s
-end
-
 function getState(width, depth, height)
 -- get state from position
   if (map[height] == nil or map[height][depth] == nil) then return nil end
   return map[height][depth][width]
+end
+
+function setStateCurtPos(s)
+  setState(curtWidth, curtDepth, curtHeight, s)
+end
+
+function getStateCurtPos()
+  return getState(curtWidth, curtDepth, curtHeight)
 end
 
 function setNextState(f, dir, s)
@@ -180,8 +173,17 @@ function transState(d, s1, s2)
   saveMap()
 end
 
+function writeState(width, depth, height, s)
+  if (width > maxSize.W) then extendWidthPos(width) end
+  if (width < minSize.W) then extendWidthNeg(width) end
+  if (depth > maxSize.W) then extendDepthPos(depth) end
+  if (depth < minSize.D) then extendDepthNeg(depth) end
+  if (height > maxSize.H) then extendHeightPos(height) end
+  if (height < minSize.H) then extendHeightNeg(height) end
+  map[height][depth][width] = s
+end
+
 function updatePos(dir)
--- function to call when moving turtle
   curtWidth, curtDepth, curtHeight = getNextPos(curtFacing, dir)
   saveLocation()
 end
@@ -211,7 +213,11 @@ function outputMap(h)
   for id = maxSize.D, minSize.D, -1 do
     data = data.."\n"
     for iw = minSize.W, maxSize.W do
-      data = data.."["..map[h][id][iw].."]"
+      if (h == curtHeight and id == curtDepth and iw == curtWidth) then
+        data = data.."[".."@".."]"
+      else
+        data = data.."["..map[h][id][iw].."]"
+      end
     end
   end
   print(data)
@@ -250,7 +256,7 @@ function extendWidthPos(nextW)
   for mapH = minSize.H, maxSize.H do
     for mapD = minSize.D, maxSize.D do
       for mapW = maxSize.W + 1, nextW do
-        map[mapH][mapD][mapW] = state.UNSEARCHED
+        map[mapH][mapD][mapW] = 0
       end
     end
   end
@@ -262,7 +268,7 @@ function extendWidthNeg(nextW)
   for mapH = minSize.H, maxSize.H do
     for mapD = minSize.D, maxSize.D do
       for mapW = nextW, minSize.W - 1 do
-        map[mapH][mapD][mapW] = state.UNSEARCHED
+        map[mapH][mapD][mapW] = 0
       end
     end
   end
@@ -275,7 +281,7 @@ function extendDepthPos(nextD)
     for mapD = maxSize.D + 1, nextD do
       map[mapH][mapD] = {}
       for mapW = minSize.W, maxSize.W do
-        map[mapH][mapD][mapW] = state.UNSEARCHED
+        map[mapH][mapD][mapW] = 0
       end
     end
   end
@@ -288,7 +294,7 @@ function extendDepthNeg(nextD)
     for mapD = nextD, minSize.D - 1 do
       map[mapH][mapD] = {}
       for mapW = minSize.W, maxSize.W do
-        map[mapH][mapD][mapW] = state.UNSEARCHED
+        map[mapH][mapD][mapW] = 0
       end
     end
   end
@@ -302,7 +308,7 @@ function extendHeightPos(nextH)
     for mapD = minSize.D, maxSize.D do
       map[mapH][mapD] = {}
       for mapW = minSize.W, maxSize.W do
-        map[mapH][mapD][mapW] = state.UNSEARCHED
+        map[mapH][mapD][mapW] = 0
       end
     end
   end
@@ -316,7 +322,7 @@ function extendHeightNeg(nextH)
     for mapD = minSize.D, maxSize.D do
       map[mapH][mapD] = {}
       for mapW = minSize.W, maxSize.W do
-        map[mapH][mapD][mapW] = state.UNSEARCHED
+        map[mapH][mapD][mapW] = 0
       end
     end
   end

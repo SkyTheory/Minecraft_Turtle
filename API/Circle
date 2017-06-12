@@ -1,60 +1,43 @@
 local version = "0.70"
 
+local diameter
 local rad
 local inDia
 local outDia
 local revise
 
-function sphere(rad)
-  local rad
-  local inDia
-  local outDia
-  rad = (diameter - 1) / 2
+function initSphere(dia)
+  diameter = dia
+  rad = (dia - 1) / 2
   inDia = (rad - 0.5)^2
   outDia = (rad + 0.5)^2
   revise = 0
 end
 
-function sphereDraw()
-  for w = minSize.W, maxSize.W do
-    for d = minSize.D, maxSize.D do
-      for h = minSize.H, maxSize.H do
-        return isValid(w, d, h)
+function initHemisphere(dia)
+  diameter = dia
+  rad = (dia - 1) / 2
+  inDia = (rad - 0.5)^2
+  outDia = (rad + 0.5)^2
+  revise = math.floor(diameter / 2)
+end
+
+function setSphere(min, max, setFn, state)
+  for w = min.W, max.W do
+    for d = min.D, max.D do
+      for h = min.H, max.H do
+        if (isValid(w, d, h)) then
+          setFn(w, d, h, state)
+        end
       end
     end
   end
+  return surface
 end
 
-function isValid1(w, d, h)
-  sum = (w - rad)^2 + (d - rad)^2 + (h - rad)^2
+function isValid(w, d, h)
+  sum = (w - rad)^2 + (d - rad)^2 + (h - rad + revise)^2
   return (sum >= inDia and sum <= outDia)
 end
 
-function viewMap()
-  repeat
-    local char = io.read()
-    local h = tonumber(char)
-    if (h ~= nil) then
-      if (h >= minSize.H and h <= maxSize.H) then
-        outputMap(h)
-      end
-    end
-  until (char == "exit")
-end
-
 dofile("/util/util")
-
-local args = { ... }
-if (#args == 0) then message("please set diameter.", msgType.ERROR) error() end
-diameter = tonumber(args[1])
-
-revise = 0
-init(diameter, diameter, diameter)
-initPos(0, 0, 0, facing.NORTH)
---extendWidthNeg(-rad)
---extendDepthNeg(-rad)
---setState(0, 0, 0, 1)
-curve()
-viewMap()
-printMap()
-print(rad)

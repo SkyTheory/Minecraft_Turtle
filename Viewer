@@ -5,7 +5,8 @@ dofile("/util/util")
 local rangeW
 local rangeD
 local rangeH
-local dataKey = {WORK = 1}
+
+local diameter
 
 local fileName = shell.getRunningProgram()
 local configData = "/config/"..fileName.."_config"
@@ -26,28 +27,6 @@ function initResume()
   Alabaster.initResume()
 end
 
-function movePos(dir)
-  local flag = Gwiber.move(dir)
-  if (flag) then
-    Alabaster.updatePos(dir)
-  end
-  return flag
-end
-
-function trace(route)
-  local mv = false
-  for i, var in ipairs(route) do
-    if (var.face ~= nil) then Alabaster.turnTo(f) end
-    flag = movePos(var.dir)
-    if (flag) then
-      mv = true
-    else
-      break
-    end
-  end
-  return mv
-end
-
 function createConfigFile()
   file = fs.open(configData, "w")
   file.close()
@@ -61,6 +40,28 @@ function initAPI(name)
   os.loadAPI(name)
 end
 
+function sphere()
+  local list
+  local min, max = Alabaster.getMapSize()
+  local w, d, h
+  Circle.initHemisphere(diameter)
+  Circle.setSphere(min, max, Alabaster.writeState, 1)
+  Alabaster.saveMap()
+end
+
+function viewMap()
+  repeat
+    local char = io.read()
+    local h = tonumber(char)
+    local min, max = Alabaster.getMapSize()
+    if (h ~= nil) then
+      if (h >= min.H and h <= max.H) then
+        Alabaster.outputMap(h)
+      end
+    end
+  until (char == "exit")
+end
+
 -- main function
 local args = { ... }
 if (not fs.exists(configData)) then
@@ -70,21 +71,25 @@ dofile(configData)
 dofile("/util/util")
 initAPI("/API/Gwiber")
 initAPI("/API/Alabaster")
-initAPI("/API/Algorithm/Breadth_first")
-initAPI("/API/Algorithm/Accordion")
+initAPI("/API/Circle")
 
 if (#args == 0) then
   message("Resume", msgType.DEBUG)
   if (resume) then
     initResume()
   else
-    message("Please configuration range.\n".."Usage: "..shell.getRunningProgram().." <width> <depth>", msgType.ERROR)
     error()
   end
-elseif (#args == 1) then
-
+else
+  diameter = tonumber(args[1])
+  rangeW = diameter
+  rangeD = diameter
+  rangeH = diameter
+  init()
 end
-quarry()
+
+sphere()
+viewMap()
 Alabaster.saveLocation()
 Alabaster.saveMap()
 fs.delete("startup")

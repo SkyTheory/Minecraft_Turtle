@@ -1,36 +1,44 @@
-local version = "1.02"
+local version = "1.04"
 
-local move = {}
-local attack = {}
-local dig = {}
+local moveFn = {}
+local attackFn = {}
+local digFn = {}
 local digEnchant = {}
-local detect = {}
-local inspect = {}
+local detectFn = {}
+local inspectFn = {}
+local suckFn = {}
+local dropFn = {}
 local enchant = nil
 local configData
 
--- toDo テーブル関連
-
 function init(turtle)
-  move[direction.FORWARD] = turtle.forward
-  move[direction.DOWN] = turtle.down
-  move[direction.UP] = turtle.up
-  attack[direction.FORWARD] = turtle.attack
-  attack[direction.DOWN] = turtle.attackDown
-  attack[direction.UP] = turtle.attackUp
-  dig[direction.FORWARD] = turtle.dig
-  dig[direction.DOWN] = turtle.digDown
-  dig[direction.UP] = turtle.digUp
+  if (turtle == nil) then return end
+  moveFn[direction.FORWARD] = turtle.forward
+  moveFn[direction.DOWN] = turtle.down
+  moveFn[direction.UP] = turtle.up
+  attackFn[direction.FORWARD] = turtle.attack
+  attackFn[direction.DOWN] = turtle.attackDown
+  attackFn[direction.UP] = turtle.attackUp
+  digFn[direction.FORWARD] = turtle.dig
+  digFn[direction.DOWN] = turtle.digDown
+  digFn[direction.UP] = turtle.digUp
   digEnchant[direction.FORWARD] = turtle.dig
   digEnchant[direction.DOWN] = turtle.digDown
   digEnchant[direction.UP] = turtle.digUp
-  detect[direction.FORWARD] = turtle.detect
-  detect[direction.DOWN] = turtle.detectDown
-  detect[direction.UP] = turtle.detectUp
-  inspect[direction.FORWARD] = turtle.inspect
-  inspect[direction.DOWN] = turtle.inspectDown
-  inspect[direction.UP] = turtle.inspectUp
+  detectFn[direction.FORWARD] = turtle.detect
+  detectFn[direction.DOWN] = turtle.detectDown
+  detectFn[direction.UP] = turtle.detectUp
+  inspectFn[direction.FORWARD] = turtle.inspect
+  inspectFn[direction.DOWN] = turtle.inspectDown
+  inspectFn[direction.UP] = turtle.inspectUp
+  suckFn[direction.FORWARD] = turtle.suck
+  suckFn[direction.DOWN] = turtle.suckDown
+  suckFn[direction.UP] = turtle.suckUp
+  dropFn[direction.FORWARD] = turtle.drop
+  dropFn[direction.DOWN] = turtle.dropDown
+  dropFn[direction.UP] = turtle.dropUp
   dofile(configData)
+  checkEnchant()
 end
 
 function setPath(name)
@@ -42,9 +50,9 @@ function checkEnchant()
   local program
   for i = 1, #var do
     local pmnames = peripheral.getMethods(var[i])
+    program = peripheral.wrap(var[i])
     -- More Turtles 2.0.0以前
     if (pmnames ~= nil and pmnames[1] == "digSilkTouch") then
-      program = peripheral.wrap(var[i])
       digEnchant[direction.FORWARD] = program.digSilkTouch
       digEnchant[direction.DOWN] = program.digSilkTouchDown
       digEnchant[direction.UP] = program.digSilkTouchUp
@@ -52,7 +60,6 @@ function checkEnchant()
       return
     end
     if (pmnames ~= nil and pmnames[1] == "digFortune") then
-      program = peripheral.wrap(var[i])
       digEnchant[direction.FORWARD] = program.digFortune
       digEnchant[direction.DOWN] = program.digFortuneDown
       digEnchant[direction.UP] = program.digFortuneUp
@@ -60,21 +67,23 @@ function checkEnchant()
       return
     end
     -- More Turtles 2.0.0以降
-    if (peripheral.call(var[i], "getName") == "SilkTouch") then
-      program = peripheral.wrap(var[i])
-      digEnchant[direction.FORWARD] = program.dig
-      digEnchant[direction.DOWN] = program.digDown
-      digEnchant[direction.UP] = program.digUp
-      enchant = "SilkTouch"
-      return
-    end
-    if (peripheral.call(var[i], "getName") == "Fortune") then
-      program = peripheral.wrap(var[i])
-      digEnchant[direction.FORWARD] = program.dig
-      digEnchant[direction.DOWN] = program.digDown
-      digEnchant[direction.UP] = program.digUp
-      enchant = "Fortune"
-      return
+    program = peripheral.wrap(var[i])
+    if (program.getName ~= nil) then
+      local name = program.getName()
+      if (name == "SilkTouch") then
+        digEnchant[direction.FORWARD] = program.dig
+        digEnchant[direction.DOWN] = program.digDown
+        digEnchant[direction.UP] = program.digUp
+        enchant = "SilkTouch"
+        return
+      end
+      if (name == "Fortune") then
+        digEnchant[direction.FORWARD] = program.dig
+        digEnchant[direction.DOWN] = program.digDown
+        digEnchant[direction.UP] = program.digUp
+        enchant = "Fortune"
+        return
+      end
     end
   end
 end
@@ -83,53 +92,60 @@ function getEnchantName()
   return enchant
 end
 
-function moveTurtle(dir)
--- タートル移動用ファンクション
--- 返り値は移動の成否。移動に成功すればtrueを返し、失敗あるいは中止したならばfalseを返す
+function move(dir)
   local doMove = false
-  local iFlag, iData = inspect[dir]()
-  local dFlag = detect[dir]()
+  local iFlag, iData = inspectFn[dir]()
+  local dFlag = detect(dir)
   repeat
     if (iFlag and dFlag) then
-    -- 前方にブロックがある場合
       digSuccess = digTurtle(dir, iData)
-      -- そのブロックを破壊できなければ処理を抜ける
       if (not digSuccess) then break end
     elseif (iFlag and iData.metadata == 0) then
-      -- 進入禁止に設定した液体源ブロックなら処理を抜ける
       if (not isContains(iData, table2)) then break end
     end
-    doMove = move[dir]()
+    doMove = moveFn[dir]()
     if (not doMove) then
-      attack[dir]()
+      attackFn[dir]()
     end
   until (doMove)
   return doMove
 end
 
 function digTurtle(dir, iData)
--- 採掘用ファンクション
--- 返り値は採掘の成否
   if (isContains(iData, table1)) then return false end
   if (isContains(iData, table3)) then 
     return digEnchant[dir]()
   end
-  return dig[dir]()
+  return digFn[dir]()
 end
 
 function getInspect(dir)
--- inspectのデータを返す
-  local iFlag, iData = inspect[dir]()
+  local iFlag, iData = inspectFn[dir]()
   return iData
 end
 
-function isSolid(dir)
--- 単にturtle.detectするだけのファンクション
-  return detect[dir]()
+function dig(dir)
+  local iData = getInspect(dir)
+  return digTurtle(dir, iData)
+end
+
+function detect(dir)
+  return detectFn[dir]()
+end
+
+function inspect(dir)
+  return inspectFn[dir]()
+end
+
+function suck(dir)
+  return suckFn[dir]()
+end
+
+function drop(dir)
+  return dropFn[dir]()
 end
 
 function isContains(var, table)
--- 引数1（ブロックなど）が引数2（テーブル）の中に存在するかを確認する
   if (var == nil) then return false end
   for i = 1, #table.list do
   local lb = table.list[i][1]
@@ -149,6 +165,5 @@ function isContains(var, table)
   return (not table.isWhite)
 end
 
--- コンストラクタ
 dofile("/util/util")
 checkEnchant()
