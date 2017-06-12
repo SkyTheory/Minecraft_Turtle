@@ -1,4 +1,4 @@
-local version = "1.02"
+local version = "1.03"
 
 local map = {}
 local minSize = {W = 0, D = 0, H = 0}
