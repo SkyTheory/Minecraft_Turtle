@@ -1,0 +1,383 @@
+local version = "1.01"
+
+dofile("/util/util")
+
+local rangeW
+local rangeD
+local rangeH
+local manipulator
+
+-- local state = {DEFAULT = 0, LAVA = 1, OBSTACLE = 2}
+local dataKey = {WORK = 1, HEIGHT = 2, CONTW = 3, CONTD = 4}
+local workState = {DESCENT = 0, PREWORK = 1, WORK = 2, POSTWORK = 3, ASCENT = 4, FINISH = 5}
+
+local fileName = shell.getRunningProgram()
+local configData = "/config/"..fileName.."_config"
+
+function init()
+  Alabaster.setPath(fileName)
+  Alabaster.init(rangeW, rangeD, rangeH, facing.NORTH)
+  Alabaster.initPos(0, -1, 0, facing.NORTH)
+  Alabaster.setCondition(dataKey.WORK, workState.DESCENT)
+  Alabaster.setCondition(dataKey.HEIGHT, -2)
+  Alabaster.setCondition(dataKey.CONTW, 0)
+  Alabaster.setCondition(dataKey.CONTD, 0)
+  for i, var in ipairs(peripheral.getNames()) do
+    local pname = peripheral.getType(var)
+    if (pname == "tool_manipulator") then
+      manipulator = peripheral.wrap(var)
+    end
+  end
+  if (manipulator == nil) then
+    message("Need to attach Tool Manipulator.", msgType.ERROR)
+    error()
+  end
+  if (Lucy.getFirstItem("minecraft:bucket") == -1) then
+    message("Need Buckets!", msgType.ERROR)
+    error()
+  end
+  local slot = 1
+  Lucy.condense()
+  for i = 1, 16 do
+    if (Lucy.getItemName(i) == "minecraft:bucket") then
+      while(turtle.getItemCount(i) > 1) do
+        slot = Lucy.getNextEmptySlot(i)
+        if (slot == Ariadna.getFuelSlot()) then slot = Lucy.getNextEmptySlot(slot) end
+        if (slot == -1) then message("Can't ensure item space", msgType.ERROR) error() end
+        turtle.select(i)
+        turtle.transferTo(slot, 1)
+      end
+    end
+  end
+  turtle.select(1)
+  if(not Ariadna.ensureFuel(Alabaster.getRefuelLevel())) then
+    error()
+  end
+  movePos(direction.FORWARD)
+end
+
+function initResume()
+  Alabaster.setPath(fileName)
+  Alabaster.initResume()
+  turtle.select(1)
+end
+
+function lavaRemover()
+  while(Alabaster.getCondition(dataKey.WORK) ~= workState.FINISH) do
+    if (Alabaster.getCondition(dataKey.WORK) == workState.DESCENT) then
+      message("Descent", msgType.DEBUG)
+      lavaRemoverDescent()
+    end
+    if (Alabaster.getCondition(dataKey.WORK) == workState.PREWORK) then
+      message("PreWork", msgType.DEBUG)
+      lavaRemoverPreWork()
+    end
+    if (Alabaster.getCondition(dataKey.WORK) == workState.WORK) then
+      message("Work", msgType.DEBUG)
+      lavaRemoverWork()
+    end
+    if (Alabaster.getCondition(dataKey.WORK) == workState.POSTWORK) then
+      message("PostWork", msgType.DEBUG)
+      lavaRemoverPostWork()
+    end
+    if (Alabaster.getCondition(dataKey.WORK) == workState.ASCENT) then
+      message("Ascent", msgType.DEBUG)
+      lavaRemoverAscent()
+    end
+  end
+  lavaRemoverFinish()
+end
+
+function lavaRemoverDescent()
+  local h = Alabaster.getHeight()
+  local prevH = h
+  repeat
+    drain(direction.DOWN)
+    if (Alabaster.getCondition(dataKey.WORK) == workState.ASCENT) then return end
+    local flag
+    flag = movePos(direction.DOWN)
+    if (flag) then
+      h = Alabaster.getHeight()
+    else
+      if (h == prevH) then
+        Alabaster.setCondition(dataKey.WORK, workState.FINISH) return
+      else
+        Alabaster.setCondition(dataKey.HEIGHT, h)
+      end
+    end
+  until (h == Alabaster.getCondition(dataKey.HEIGHT))
+  if (Alabaster.getCondition(dataKey.WORK) == workState.DESCENT) then
+    Alabaster.setCondition(dataKey.WORK, workState.PREWORK)
+  end
+end
+
+function lavaRemoverPreWork()
+  local w, d, h = Alabaster.getPos()
+  local contW = Alabaster.getCondition(dataKey.CONTW)
+  local contD = Alabaster.getCondition(dataKey.CONTD)
+  while (d < contD) do
+    Alabaster.turnTo(facing.NORTH)
+    movePos(direction.FORWARD)
+    w, d, h = Alabaster.getPos()
+  end
+  while (w < contW) do
+    Alabaster.turnTo(facing.EAST)
+    movePos(direction.FORWARD)
+    w, d, h = Alabaster.getPos()
+  end
+  if (Alabaster.getCondition(dataKey.WORK) == workState.PREWORK) then
+    Alabaster.setCondition(dataKey.WORK, workState.WORK)
+  end
+end
+
+function lavaRemoverWork()
+  repeat
+    drain(direction.UP)
+    if (Alabaster.getCondition(dataKey.WORK) == workState.ASCENT) then
+      setContPos()
+      return
+    end
+    drain(direction.DOWN)
+    if (Alabaster.getCondition(dataKey.WORK) == workState.ASCENT) then
+      setContPos()
+      return
+    end
+    local w, d, h = Alabaster.getPos()
+    local minSize, maxSize = Alabaster.getMapSize()
+    local route = Accordion.getRoute(w, d, minSize, maxSize, dummy)
+    trace(route)
+    if (Alabaster.getCondition(dataKey.WORK) == workState.ASCENT) then
+      setContPos()
+      return
+    end
+  until(next(route) == nil)
+  Alabaster.setCondition(dataKey.CONTW, 0)
+  Alabaster.setCondition(dataKey.CONTD, 0)
+  Alabaster.setCondition(dataKey.WORK, workState.POSTWORK)
+  Alabaster.setCondition(dataKey.HEIGHT, Alabaster.getCondition(dataKey.HEIGHT) - 3)
+end
+
+function lavaRemoverPostWork()
+  toHomePos()
+  if (Alabaster.getCondition(dataKey.WORK) == workState.POSTWORK) then
+    Alabaster.setCondition(dataKey.WORK, workState.DESCENT)
+  end
+end
+
+function lavaRemoverAscent()
+  toHome()
+  unload()
+  supply()
+  turtle.select(1)
+  Alabaster.turnTo(facing.NORTH)
+  movePos(direction.FORWARD)
+  Alabaster.setCondition(dataKey.WORK, workState.DESCENT)
+end
+
+function lavaRemoverFinish()
+  toHome()
+  unload()
+  turtle.select(1)
+  Alabaster.turnTo(facing.NORTH)
+end
+
+function hasEmptyBucket()
+  local bucketSlot = Lucy.getFirstItem("minecraft:bucket")
+  if (bucketSlot == -1) then
+    Alabaster.setCondition(dataKey.WORK, workState.ASCENT)
+    return false
+  end
+  turtle.select(bucketSlot)
+  return true
+end
+
+function drain(dir)
+  if (not hasEmptyBucket()) then return end
+  local iData = Gwiber.getInspect(dir)
+  if (iData.name == "minecraft:lava" or iData.name == "minecraft:flowing_lava") then
+    if (iData.metadata == 0) then
+      Gwiber.place(dir)
+      hasEmptyBucket()
+    end
+  end
+end
+
+function dummy(w, d)
+  return true
+end
+
+function setContPos()
+  local w, d, h = Alabaster.getPos()
+  Alabaster.setCondition(dataKey.CONTW, w)
+  Alabaster.setCondition(dataKey.CONTD, d)
+end
+
+function toHome()
+  local w, d, h = Alabaster.getPos()
+  if (h ~= 0) then
+    toHomePos()
+  end
+  while(Alabaster.getHeight() < 0) do
+      movePos(direction.UP)
+  end
+  local w, d, h = Alabaster.getPos()
+  if (w == 0 and d == 0) then
+    Alabaster.turnTo(facing.SOUTH)
+    movePos(direction.FORWARD)
+  end
+end
+
+function unload()
+  Alabaster.turnTo(unloadF)
+  local msgFlag = msgType.INFO
+  iomessage("Unloading lava", msgFlag)
+  repeat
+    for i = 1, 16 do
+      if (i % 4 == 0) then iomessage(".", msgFlag) end
+      local detail = turtle.getItemDetail(i)
+      if (detail ~= nil and detail.name == "minecraft:lava_bucket") then
+        turtle.select(i)
+        while (detail.name ~= "minecraft:bucket") do
+          local flag = manipulator.use()
+          if (not flag or turtle.getItemDetail(i).name == "minecraft:lava_bucket") then
+            iomessage("\n", msgFlag)
+            msgFlag = false
+            wait("Unable to unload lava.\nPress any key to continue.")
+          end
+          detail = turtle.getItemDetail(i)
+        end
+      end
+    end
+    iomessage("\n", msgFlag)
+    msgFlag = false
+    currentSlot = 1
+  until(checkBucket())
+end
+
+function supply()
+  Alabaster.turnTo(supplyF)
+  local level = Alabaster.getRefuelLevel() * 2
+  local flag = false
+  while (not flag) do
+    flag = Ariadna.supply(level, direction.FORWARD)
+    if (not flag) then
+      wait("Unable to supply fuel.\nPress any key to continue.")
+    end
+  end
+end
+
+function wait(msg)
+  message(msg, msgType.ERROR)
+  os.pullEvent("key")
+end
+
+function checkBucket()
+  for i = 1, 16 do
+    local detail = turtle.getItemDetail(i)
+    if (detail ~= nil and detail.name == "minecraft:lava_bucket") then return false end
+  end
+  return true
+end
+
+function toHomePos()
+  local w, d, h = Alabaster.getPos()
+  while (w > 0) do
+    Alabaster.turnTo(facing.WEST)
+    movePos(direction.FORWARD)
+    w, d, h = Alabaster.getPos()
+  end
+  while (d > 0) do
+    Alabaster.turnTo(facing.SOUTH)
+    movePos(direction.FORWARD)
+    w, d, h = Alabaster.getPos()
+  end
+end
+
+function movePos(dir)
+  local flag = Gwiber.move(dir)
+  if (flag) then
+    Alabaster.updatePos(dir)
+  end
+  if (not Ariadna.ensureFuel(Alabaster.getRefuelLevel())) then
+    Alabaster.setCondition(dataKey.WORK, workState.ASCENT)
+  end
+  return flag
+end
+
+function trace(route)
+  local mv = false
+  for i, var in ipairs(route) do
+    if (var.face ~= nil) then Alabaster.turnTo(var.face) end
+    drain(var.dir)
+    if (Alabaster.getCondition(dataKey.WORK) == workState.ASCENT) then
+      return mv
+    end
+    flag = movePos(var.dir)
+    if (flag) then
+      mv = true
+    else
+      break
+    end
+  end
+  return mv
+end
+
+function createConfigFile()
+  file = fs.open(configData, "w")
+  file.writeLine("resume = true")
+  file.writeLine("unloadF = facing.EAST")
+  file.writeLine("supplyF = facing.WEST")
+  file.close()
+end
+
+function initAPI(name)
+  if (not fs.exists(name)) then
+    message("Unable to read API : "..name, msgType.ERROR)
+    error()
+  end
+  os.loadAPI(name)
+end
+
+-- main function
+local args = { ... }
+if (not fs.exists(configData)) then
+  createConfigFile()
+end
+dofile(configData)
+dofile("/util/util")
+initAPI("/API/Gwiber")
+initAPI("/API/Alabaster")
+initAPI("/API/Lucy")
+initAPI("/API/Ariadna")
+initAPI("/API/Algorithm/Accordion")
+
+if (#args == 0) then
+  if (resume) then
+    initResume()
+    message("Resume", msgType.DEBUG)
+  else
+    message("Please configuration range.\n".."Usage: "..shell.getRunningProgram().." <width> <depth>", msgType.ERROR)
+    error()
+  end
+elseif (#args == 1) then
+  message("Please configuration range.\n".."Usage: "..shell.getRunningProgram().." <width> <depth>", msgType.ERROR)
+  error()
+elseif (#args == 2) then
+  if (resume) then
+    local file
+    file = fs.open("startup", "w")
+    file.writeLine("shell.run(\""..fileName.."\")")
+    file.close()
+  end
+  rangeW = math.floor(tonumber(args[1]))
+  rangeD = math.floor(math.abs(tonumber(args[2])))
+  rangeH = 1
+  init()
+else
+  message("Too much arguments!", msgType.ERROR)
+  error()
+end
+lavaRemover()
+Alabaster.saveLocation()
+Alabaster.saveMap()
+fs.delete("startup")

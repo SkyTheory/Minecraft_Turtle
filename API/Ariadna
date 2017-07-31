@@ -1,0 +1,232 @@
+local version = "1.03"
+
+local fuel
+local fuelItems = {}
+local fuelMargin
+local fuelSlot
+
+local fileName
+local configData
+
+local dependAPI = {"GIWCore", "GIWUtil", "Lucy"}
+
+function init()
+  validateDepend()
+  setPath()
+  loadConfig()
+  fuelSlot = -1
+end
+
+function validateDepend()
+  local need = {}
+  for key, var in pairs(dependAPI) do
+    if (getfenv()[var] == nil) then 
+      table.insert(need, dependAPI[key])
+    end
+  end
+  if (#need ~= 0) then
+    str = table.concat(need, ", ")
+    error("Need API : "..str)
+  end
+end
+
+function setPath()
+  local names = GIWCore.getAPInames()
+  if (names == nil) then
+    error("Initialize failed.")
+  end
+  configData = "/config/"..names[#names].."_config"
+end
+
+function loadConfig()
+  if (not fs.exists(configData)) then
+    createConfigFile()
+  end
+  local keys = {"Margin:", "Fuel:"}
+  for line in io.lines(configData) do
+    local data = GIWCore.readConfig(line, keys)
+    setConfig(data)
+  end
+end
+
+function setConfig(data)
+  if (data.key == "Margin:") then
+    fuelMargin = tonumber(data.contents.level)
+  end
+  if (data.key == "Fuel:") then
+    local item = {}
+    item.display = data.contents.name
+    item.name = data.contents.id
+    item.damage = tonumber(data.contents.damage)
+    table.insert(fuelItems, item)
+  end
+end
+
+
+function createConfigFile()
+  file = fs.open(configData, "w")
+  file.writeLine(" -- Fuel margin setting -- ")
+  file.writeLine("Margin:level = 80")
+  file.writeLine(" -- Fuel item settings -- ")
+  file.writeLine("Fuel:name = Charcoal, id = minecraft:coal, damage = 1")
+  file.writeLine("Fuel:name = Blaze Rod, id = minecraft:blaze_rod")
+  file.writeLine("Fuel:name = Block of Coal, id = minecraft:coal_block")
+  file.writeLine("Fuel:name = Coal, id = minecraft:coal, damage = 0")
+  file.writeLine("Fuel:name = Lava, id = minecraft:lava_bucket")
+  file.writeLine("Fuel:name = Log, id = minecraft:log")
+  file.writeLine("Fuel:name = Log, id = minecraft:log2")
+  file.close()
+end
+
+function setFuelSlot(slot)
+  fuelSlot = slot
+end
+
+function getFuelSlot()
+  return fuelSlot
+end
+
+function setFuel(table)
+  fuel = table
+end
+
+function getFuel()
+  return fuel
+end
+
+function getFuelName()
+  if (fuel == nil) then return nil end
+  return fuel.display
+end
+
+function hasFuel(level)
+  return (turtle.getFuelLevel() >= level + fuelMargin)
+end
+
+function ensureFuel(level)
+  if (not hasFuel(level)) then
+    chargeFuel(level)
+    if (hasFuel(level)) then
+      GIWUtil.message("...refueled.", msgType.INFO)
+    end
+  end
+  return hasFuel(level)
+end
+
+function switchFuel()
+  local prevName = getFuelName()
+  local nextSlot
+  for i = 1, #fuelItems do
+    nextSlot = Lucy.getLastItem(fuelItems[i], "auto")
+    if (nextSlot ~= -1) then
+      fuelSlot = nextSlot
+      fuel = fuelItems[i]
+      break
+    end
+  end
+  if (nextSlot ~= -1) then
+    if (prevName == nil) then
+      GIWUtil.message("Set fuel : "..getFuelName(), msgType.INFO)
+    elseif (prevName ~= getFuelName()) then
+      GIWUtil.message("Set fuel : "..prevName.." -> "..getFuelName(), msgType.INFO)
+    end
+  else
+    fuelSlot = -1
+    fuel = nil
+  end
+end
+
+function chargeFuel(level)
+  local prevSlot = turtle.getSelectedSlot()
+  while (not hasFuel(level)) do
+    if (fuelSlot == -1) then
+      switchFuel()
+      if (fuelSlot == -1) then
+        turtle.select(prevSlot)
+        fuelError(level)
+        return
+      end
+    end
+    turtle.select(fuelSlot)
+    local flag
+    flag = turtle.refuel(1)
+    if (not flag) then
+      setFuelSlot(Lucy.getLastItem(fuel))
+      if (fuelSlot == -1) then
+        switchFuel()
+      end
+    elseif (turtle.getItemCount(fuelSlot) == 0) then
+      if (not transferFuel()) then
+        switchFuel()
+      end
+    end
+  end
+  turtle.select(prevSlot)
+end
+
+function turtle.refuelFromLava()
+  local prevSlot = turtle.getSelectedSlot()
+  local lavaSlot = Lucy.getLastItem("minecraft:lava_bucket")
+  if (lavaSlot ~= -1) then
+    turtle.select(lavaSlot)
+    turtle.refuel(1)
+    turtle.select(prevSlot)
+  end
+end
+
+function transferFuel()
+  local flag = false
+  for i = 16, 1, -1 do
+    if (i ~= fuelSlot) then
+      if (Lucy.isIdenticalItem(i, fuel, "exact")) then
+        flag = Lucy.ShiftItem(i, fuelSlot)
+      end
+    end
+  end
+  return flag
+end
+
+function supply(level, dir)
+  if (Gwiber == nil) then error("Need for Gwiber API.") end
+  local prevSlot = turtle.getSelectedSlot()
+  local prevFuelSlot = fuelSlot
+  switchFuel()
+  if (fuelSlot == -1 or (getFuelName() == "minecraft:lava_bucket" and Lucy.getItemName(prevFuelSlot) ~= "minecraft:lava_bucket")) then
+    local lastEmpty = Lucy.getLastEmptySlot()
+    if (lastEmpty == -1) then return ensureFuel(level) end
+    turtle.select(lastEmpty)
+  else
+    turtle.select(fuelSlot)
+    chargeFuel(level)
+    transferFuel()
+  end
+  local qty = turtle.getItemSpace()
+  if (qty == 0) then return ensureFuel() end
+  local flag = Gwiber.suck(dir, qty)
+  if (flag) then
+    local prevFuel = fuel
+    switchFuel()
+    if (fuelSlot == -1) then
+      turtle.select(prevSlot)
+      return ensureFuel(level)
+    elseif (prevFuel == fuel) then
+      turtle.select(prevSlot)
+      return ensureFuel(level)
+    else
+      turtle.select(fuelSlot)
+      transferFuel()
+      Gwiber.suck(dir, turtle.getItemSpace())
+      turtle.select(prevSlot)
+      return ensureFuel(level)
+    end
+  else
+    return ensureFuel(level)
+  end
+end
+
+function fuelError(level)
+  GIWUtil.message("Out of Fuel!", msgType.ERROR)
+  GIWUtil.message("Remain : " .. turtle.getFuelLevel().." Need : "..level + fuelMargin, msgType.ERROR)
+end
+
+init()

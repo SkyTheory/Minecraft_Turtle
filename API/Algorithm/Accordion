@@ -1,4 +1,4 @@
-local version = "1.02"
+local version = "1.03"
 
 function getRoute(w, d, min, max, isGoal)
   local route = {}
@@ -18,10 +18,8 @@ function getRoute(w, d, min, max, isGoal)
       f = facing.EAST
     end
   end
-  if (f ~= nil and isGoal(getAdjacentPos(f, w, d))) then
+  if (f ~= nil and isGoal(Alabaster.getNextFromPos(f, direction.FORWARD, w, d, nil))) then
     table.insert(route, {face = f, dir = direction.FORWARD})
   end
   return route
 end
-
-dofile("/util/util")

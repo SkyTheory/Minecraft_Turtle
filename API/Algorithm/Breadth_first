@@ -76,5 +76,3 @@ function closeNode(cost, w, d, canPass, isGoal)
   end
   return nil
 end
-
-dofile("/util/util")

@@ -1,4 +1,4 @@
-local version = "1.03"
+local version = "1.08"
 
 local map = {}
 local minSize = {W = 0, D = 0, H = 0}
@@ -8,14 +8,45 @@ local curtDepth
 local curtHeight
 local curtFacing
 local condition = {}
-local configData
 local refuelLevel
 local locationData
 local locationBak
 local mapData
 local mapBak
 
-function init(w, d, h)
+local dependAPI = {"GIWCore", "GIWUtil"}
+
+function init()
+  validateDepend()
+  setPath()
+  initPos(0, 0, 0, facing.NORTH)
+end
+
+function validateDepend()
+  local need = {}
+  for key, var in pairs(dependAPI) do
+    if (getfenv()[var] == nil) then 
+      table.insert(need, dependAPI[key])
+    end
+  end
+  if (#need ~= 0) then
+    str = table.concat(need, ", ")
+    error("Need API : "..str)
+  end
+end
+
+function setPath()
+  local name = GIWCore.getProgramName()
+  if (name == nil) then
+    error("Initialize failed.")
+  end
+  locationData = "/log/"..name.."_location"
+  locationBak = "/bak/"..name.."_location"
+  mapData = "/log/"..name.."_map"
+  mapBak = "/bak/"..name.."_map"
+end
+
+function initSize(w, d, h)
 -- initialize map size
   if (w > 0) then
     maxSize.W = w - 1
@@ -37,20 +68,19 @@ function init(w, d, h)
   setRefuelLevel()
 end
 
-function initResume()
-  loadLocation()
-  initMap()
-  loadMap()
-  printMap()
-  setRefuelLevel()
-end
-
 function initPos(w, d, h, f)
 -- initialize position
   curtWidth = w
   curtDepth = d
   curtHeight = h
   curtFacing = f
+end
+
+function initResume()
+  loadLocation()
+  initMap()
+  loadMap()
+  setRefuelLevel()
 end
 
 function initMap()
@@ -65,14 +95,6 @@ function initMap()
       end
     end
   end
-end
-
-function setPath(name)
---configData = "/config/"..name.."_config"
-  locationData = "/log/"..name.."_location"
-  locationBak = "/bak/"..name.."_location"
-  mapData = "/log/"..name.."_map"
-  mapBak = "/bak/"..name.."_map"
 end
 
 function getPos()
@@ -191,8 +213,8 @@ end
 function setRefuelLevel()
   local size1 = (maxSize.W - minSize.W + 1) * (maxSize.D - minSize.D + 1)
   local size2 = (maxSize.W - minSize.W) * (maxSize.D - minSize.D) / 2
-  local size3 = maxSize.H - minSize.H + 1
-  refuelLevel =  size1 - size2 + size3
+  local size3 = maxSize.H - minSize.H
+  refuelLevel =  math.ceil(size1 - size2 + size3) + 1
 end
 
 function getRefuelLevel()
@@ -220,7 +242,26 @@ function outputMap(h)
       end
     end
   end
-  print(data)
+  GIWUtil.message(data, msgType.MAP)
+end
+
+function execute(side, func, ...)
+  local args = {...}
+  local switch = {}
+  switch["FORWARD"] = function() func(direction.FORWARD, unpack(args)) end
+  switch["DOWN"] = function() func(direction.DOWN, unpack(args)) end
+  switch["UP"] = function() func(direction.UP, unpack(args)) end
+  switch["BACK"] = function() turnAround() func(direction.FORWARD, unpack(args)) end
+  switch["RIGHT"] = function() turnRight() func(direction.FORWARD, unpack(args)) end
+  switch["LEFT"] = function() turnLeft() func(direction.FORWARD, unpack(args)) end
+  switch["NORTH"] = function() turnTo(facing.NORTH) func(direction.FORWARD, unpack(args)) end
+  switch["EAST"] = function() turnTo(facing.EAST) func(direction.FORWARD, unpack(args)) end
+  switch["SOUTH"] = function() turnTo(facing.SOUTH) func(direction.FORWARD, unpack(args)) end
+  switch["WEST"] = function() turnTo(facing.WEST) func(direction.FORWARD, unpack(args)) end
+  if (switch[side] == nil) then
+    error(side.." is invalid argment!")
+  end
+  switch[side]()
 end
 
 -- turning functions
@@ -402,7 +443,7 @@ function loadMap()
       for k = minSize.W, maxSize.W do
         map[i][j][k] = tonumber(file.readLine())
         if (map[i][j][k] == nil) then
-          message("Failed to load map", msgType.ERROR)
+          GIWUtil.message("Failed to load map", msgType.ERROR)
           error()
         end
       end
@@ -411,4 +452,4 @@ function loadMap()
   file.close()
 end
 
-dofile("/util/util")
+init()

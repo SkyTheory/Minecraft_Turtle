@@ -1,0 +1,132 @@
+local version = "1.05"
+
+local program
+
+local APInames = {}
+
+local configData = "/config/GIWCore_config"
+
+function init()
+  setProgramName()
+end
+
+function setProgramName()
+  local level = readLevel()
+  program = readName(level)
+end
+
+function getProgramName()
+  return program
+end
+
+-- Initialize
+
+function readLevel()
+  local ft
+  local rl = 1
+  repeat
+    rl = rl + 1
+    ft = getfenv(rl)
+    if (ft == nil) then error("Failed to get stack level.") end
+  until(ft.shell ~= nil)
+  return rl
+end
+
+function readName(level)
+  local path
+  path = getfenv(level).shell.getRunningProgram()
+  return toName(path)
+end
+
+function toName(path)
+  local pos = 0
+  local nextPos = 0
+  repeat
+    pos = nextPos + 1
+    nextPos = string.find(path, "/", pos)
+  until(nextPos == nil)
+  return string.sub(path, pos)
+end
+
+-- API loading
+
+function loadAPI(path)
+  local name = toName(path)
+  table.insert(APInames, name)
+  local flag = (os.loadAPI(path))
+  if (flag) then
+    table.sort(APInames)
+  else
+    table.remove(APInames, #APInames)
+    print("Unable to load API : "..name)
+  end
+end
+
+function getAPInames()
+  return APInames
+end
+
+function outputAPInames()
+  message(table.concat(APInames, ", "), msgType.DEBUG)
+end
+
+-- Reading data from line
+
+function readConfig(line, keys)
+  local result = {}
+  result.contents = {}
+  local str = removeSpace(line)
+  for i, var in ipairs(keys) do
+    local keyPos = string.find(str, var)
+    if (keyPos == 1) then
+      result.key = var
+      str = string.sub(str, string.len(var) + 1)
+      break
+    end
+  end
+  if (result.key == nil) then return result end
+  repeat
+    local nextComma = string.find(str, ",")
+    local last
+    if (nextComma ~= nil) then
+      last = nextComma - 1
+    else
+      last = string.len(str)
+    end
+    local data = string.sub(str, 1, last)
+    local rkey, rvar = getData(data)
+    result.contents[rkey] = rvar
+    if (nextComma ~= nil) then
+      str = string.sub(str, nextComma + 1)
+    end
+  until(nextComma == nil)
+  return result
+end
+
+function removeSpace(str)
+  local var = str
+  repeat
+    local rm = string.find(var, " ")
+    if (rm ~= nil) then
+      local t = string.sub(var, 1, rm - 1)..string.sub(var, rm + 1)
+      var = t
+    end
+  until(rm == nil)
+  return var
+end
+
+function getData(str)
+  local key
+  local var
+  local pos = string.find(str, "=")
+  if (pos == nil) then
+    error("Invalid config.")
+  end
+  key = (string.sub(str, 1, pos - 1))
+  var = (string.sub(str, pos + 1))
+  if (var == "true") then var = true end
+  if (var == "false") then var = false end
+  return key, var
+end
+
+init()

@@ -1,4 +1,4 @@
-local version = "1.06"
+local version = "1.08"
 
 dofile("/util/util")
 
@@ -17,10 +17,8 @@ local configData = "/config/"..fileName.."_config"
 
 
 function init()
-  Gwiber.setPath(fileName)
-  Gwiber.init(turtle)
   Alabaster.setPath(fileName)
-  Alabaster.init(rangeW, rangeD, rangeH, facing.NORTH)
+  Alabaster.initSize(rangeW, rangeD, rangeH)
   Alabaster.initPos(0, -1, 0, facing.NORTH)
   Alabaster.setCondition(dataKey.WORK, workState.MOVE)
   Alabaster.setCondition(dataKey.NEXT, -2)
@@ -28,21 +26,23 @@ function init()
   iomessage("Checking fuel level", msgType.INFO)
   for i = 1, 4 do msgSleep(0.25, msgType.INFO) iomessage(".", msgType.INFO) end
   iomessage("\n", msgType.INFO)
-  if(not hasFuel()) then error() end
+  if(not Ariadna.ensureFuel(Alabaster.getRefuelLevel())) then error() end
   message("Fuel remain : " .. tostring(turtle.getFuelLevel()), msgType.INFO)
   msgSleep(0.75, msgType.INFO)
-  iomessage("Checking Enchant Program", msgType.INFO)
-  for i = 1, 4 do msgSleep(0.25, msgType.INFO) iomessage(".", msgType.INFO) end
-  iomessage("\n", msgType.INFO, msgType.INFO)
   local result = Gwiber.getEnchantName()
-  if (result == nil) then message("Normal mode.", msgType.INFO)
-  elseif (result == "SilkTouch") then message("Enable Silk Touch mode.", msgType.INFO)
-  elseif (result == "Fortune") then message("Enable Fortune mode.", msgType.INFO)
+  if (result ~= nil) then
+    iomessage("Checking Enchant Program", msgType.INFO)
+    for i = 1, 4 do msgSleep(0.25, msgType.INFO) iomessage(".", msgType.INFO) end
+    iomessage("\n", msgType.INFO, msgType.INFO)
+    if (result == nil) then message("Normal mode.", msgType.INFO)
+    elseif (result == "SilkTouch") then message("Enable Silk Touch mode.", msgType.INFO)
+    elseif (result == "Fortune") then message("Enable Fortune mode.", msgType.INFO)
+    end
   end
   msgSleep(0.75, msgType.INFO)
   --
   turtle.select(1)
-  moveOnlyPos(direction.FORWARD)
+  movePos(direction.FORWARD)
 end
 
 function initResume()
@@ -52,41 +52,10 @@ function initResume()
   Alabaster.initResume()
   turtle.select(1)
   if (Alabaster.getCondition(dataKey.WORK) ~= workState.FINISH) then
-    hasFuel()
+    Ariadna.ensureFuel(Alabaster.getRefuelLevel())
     hasSpace()
   end
   Alabaster.printMap()
-end
-
-function hasFuel()
-  local fuelRemain = turtle.getFuelLevel()
-  if (fuelRemain < Alabaster.getRefuelLevel() + fuelMargin) then
-    if (fuelSlot == -1) then
-      fuelError(fuelRemain)
-      return false
-    end
-    turtle.select(fuelSlot)
-    while (fuelRemain < Alabaster.getRefuelLevel() + fuelMargin) do
-      if (fuelSlot == -1) then
-        fuelError(fuelRemain)
-        return false
-      end
-      if (turtle.getItemCount(fuelSlot) == 1) then
-        transferFuel()
-      end
-      local ref = turtle.refuel(1)
-      fuelRemain = turtle.getFuelLevel()
-      if (not (ref)) then
-        fuelError(fuelRemain)
-        return false
-      elseif (turtle.getItemCount(fuelSlot) == 0) then
-        fuelSlot = -1
-      end
-    end
-    turtle.select(1)
-    message("...refueled.", msgType.INFO)
-  end
-  return true
 end
 
 function fuelError(fuelRemain)
@@ -95,18 +64,19 @@ function fuelError(fuelRemain)
 end
 
 function transferFuel()
+  local prevSlot = turtle.getSelectedSlot()
+  local flag = false
   for i = 1, 16 do
     if (turtle.getItemCount(i) ~= 0) then
       turtle.select(i)
       if (i ~= fuelSlot and turtle.transferTo(fuelSlot)) then
-        turtle.select(fuelSlot)
-        return true
+        flag = true
       end
     end
   end
-  return false
+  turtle.select(prevSlot)
+  return flag
 end
-
 function hasSpace()
   if (turtle.getItemCount(currentSlot) == 0) then return true end
   for i = 1, 16 do
@@ -163,7 +133,7 @@ function quarryMove()
   local prevH = h
   repeat
     local flag
-    flag = movePos(direction.DOWN)
+    flag = explorePos(direction.DOWN)
     if (flag) then
       h = Alabaster.getHeight()
     else
@@ -210,7 +180,7 @@ function quarryBack()
   unload()
   supply()
   Alabaster.turnTo(facing.NORTH)
-  moveOnlyPos(direction.FORWARD)
+  movePos(direction.FORWARD)
   Alabaster.setCondition(dataKey.WORK, workState.MOVE)
 end
 
@@ -224,7 +194,7 @@ function act()
   digVertical(direction.DOWN)
   digVertical(direction.UP)
   if (not hasSpace()) then Alabaster.setCondition(dataKey.WORK, workState.BACK) end
-  if (not hasFuel()) then Alabaster.setCondition(dataKey.WORK, workState.BACK) end
+  if (not Ariadna.ensureFuel(Alabaster.getRefuelLevel())) then Alabaster.setCondition(dataKey.WORK, workState.BACK) end
 end
 
 function canPass(w, d)
@@ -268,12 +238,12 @@ function toHome()
     toHomePos()
   end
   while(Alabaster.getHeight() < 0) do
-      movePos(direction.UP)
+      explorePos(direction.UP)
   end
   local w, d, h = Alabaster.getPos()
-  if (w == 0 and d == 0) then
+  if (isHome(w, d)) then
     Alabaster.turnTo(facing.SOUTH)
-    moveOnlyPos(direction.FORWARD)
+    movePos(direction.FORWARD)
   end
 end
 
@@ -304,7 +274,7 @@ function supply()
   end
   turtle.select(fuelSlot)
   turtle.suck(turtle.getItemSpace())
-  if (not hasFuel()) then
+  if (not Ariadna.ensureFuel(Alabaster.getRefuelLevel())) then
     message("Incorrect item for fuel.", msgType.ERROR)
     error()
   end
@@ -312,10 +282,9 @@ end
 
 -- moving functions
 
-function movePos(dir)
-  local flag = Gwiber.move(dir)
+function explorePos(dir)
+  local flag = movePos(dir)
   if (flag) then
-    Alabaster.updatePos(dir)
     local liveState = Alabaster.getStateCurtPos()
     if (liveState == nil or liveState == state.UNSEARCHED) then
       Alabaster.setStateCurtPos(state.SEARCHED)
@@ -327,7 +296,7 @@ function movePos(dir)
   return flag
 end
 
-function moveOnlyPos(dir)
+function movePos(dir)
   local flag = Gwiber.move(dir)
   if (flag) then
     Alabaster.updatePos(dir)
@@ -339,7 +308,7 @@ function trace(route)
   local mv = false
   for i, var in ipairs(route) do
     if (var.face ~= nil) then Alabaster.turnTo(var.face) end
-    flag = movePos(var.dir)
+    flag = explorePos(var.dir)
     if (flag) then
       mv = true
     else
@@ -379,29 +348,24 @@ function createConfigFile()
   file.close()
 end
 
-function initAPI(name)
-  if (not fs.exists(name)) then
-    message("Unable to read API : "..name, msgType.ERROR)
-    error()
-  end
-  os.loadAPI(name)
-end
-
 -- main function
 local args = { ... }
 if (not fs.exists(configData)) then
   createConfigFile()
 end
 dofile(configData)
-dofile("/util/util")
-initAPI("/API/Gwiber")
-initAPI("/API/Alabaster")
-initAPI("/API/Algorithm/Breadth_first")
-initAPI("/API/Algorithm/Accordion")
+os.loadAPI("API/GIWCore")
+GIWCore.loadAPI("/API/GIWUtil")
+GIWCore.loadAPI("/API/Gwiber")
+GIWCore.loadAPI("/API/Lucy")
+GIWCore.loadAPI("/API/Ariadna")
+GIWCore.loadAPI("/API/Alabaster")
+GIWCore.loadAPI("/API/Algorithm/Accordion")
+GIWCore.loadAPI("/API/Algorithm/Breadth_first")
 
 if (#args == 0) then
-  message("Resume", msgType.DEBUG)
   if (resume) then
+    message("Resume", msgType.DEBUG)
     initResume()
   else
     message("Please configuration range.\n".."Usage: "..shell.getRunningProgram().." <width> <depth>", msgType.ERROR)

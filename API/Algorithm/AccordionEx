@@ -23,5 +23,3 @@ function getRoute(w, d, min, max, isGoal, fold1, fold2)
   end
   return route
 end
-
-dofile("/util/util")
