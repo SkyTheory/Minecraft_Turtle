@@ -27,18 +27,7 @@ function writeString(self, str)
 end
 
 function writeData(self, key, var)
-  local data
-  if (type(var) ~= "table") then
-    data = tostring(var)
-  else
-    local dtbl = {}
-    for tkey, tvar in next, var do
-      local str = string.format("%s, %s, %s, %s", tkey, type(tkey), tostring(tvar), type(tvar))
-      table.insert(dtbl, str)
-    end
-    data = table.concat(dtbl, "/")
-  end
-  self.handler.writeLine(string.format("%s/%s/%s", key, type(var), data))
+  self.handler.writeLine(string.format("%s : %s", key, GIWUtil.serialize(var)))
 end
 
 function save(self)
@@ -63,30 +52,11 @@ function loadData(self)
   local result = {}
   for line in self.handler.readLine do
     if (string.sub(line, 1, 1) == "@") then
-      local list = GIWUtil.split(line, "/")
-      if (list[1] == "@TimeStamp") then
-        local tsday = tonumber(list[2])
-        local tstime = tonumber(list[3])
-        if (tsday > os.day()) then return result end
-        if (tsday == os.day() and tstime > os.time()) then return result end
-      end
+      if (not checkTimeStamp(line)) then return result end
     else
-      local list = GIWUtil.split(line, "/")
-      if (next(list) ~= nil) then
-        local dataindex = list[1]
-        table.remove(list, 1)
-        local datatype = list[1]
-        table.remove(list, 1)
-        for key, var in ipairs(list) do
-          local r1, r2 = GIWUtil.cast(var, datatype)
-          if (datatype ~= "table") then
-            result[dataindex] = r1
-          else
-            result[dataindex] = result[dataindex] or {}
-            --
-            result[dataindex][r1] = r2
-          end
-        end
+      local key, var = unserialize(line)
+      if (key) then
+        result[key] = var
       end
     end
   end
@@ -97,33 +67,37 @@ function loadDataList(self)
   local result = {}
   for line in self.handler.readLine do
     if (string.sub(line, 1, 1) == "@") then
-      local list = GIWUtil.split(line, "/")
-      if (list[1] == "@TimeStamp") then
-        local tsday = tonumber(list[2])
-        local tstime = tonumber(list[3])
-        if (tsday > os.day()) then return result end
-        if (tsday == os.day() and tstime > os.time()) then return result end
-      end
+      if (not checkTimeStamp(line)) then return result end
     else
-      local list = GIWUtil.split(line, "/")
-      if (next(list) ~= nil) then
-        local dataindex = list[1]
-        table.remove(list, 1)
-        local datatype = list[1]
-        table.remove(list, 1)
-        result[dataindex] = result[dataindex] or {}
-        local nextindex = #result[dataindex] + 1
-        for key, var in ipairs(list) do
-          local r1, r2 = GIWUtil.cast(var, datatype)
-          if (datatype ~= "table") then
-            result[dataindex][nextindex] = r1
-          else
-            result[dataindex][nextindex] = result[dataindex][nextindex] or {}
-            result[dataindex][nextindex][r1] = r2
-          end
-        end
+      local key, var = unserialize(line)
+      if (key) then
+        result[key] = result[key] or {}
+        table.insert(result[key], var)
       end
     end
   end
   return result
+end
+
+function checkTimeStamp(line)
+  if (string.match(line, "^@TimeStamp")) then
+    local ts = GIWUtil.split(line, "/")
+    local tsday = tonumber(ts[2])
+    local tstime = tonumber(ts[3])
+    if (tsday > os.day()) then return result end
+    if (tsday == os.day() and tstime > os.time()) then return false end
+  end
+  return true
+end
+
+function unserialize(line)
+  local list = GIWUtil.split(line, ":")
+  if (next(list)) then
+    local key = list[1]
+    table.remove(list, 1)
+    local data = table.concat(list, ":")
+    var = GIWUtil.unserialize(data)
+    return key, var
+  end
+  return nil
 end

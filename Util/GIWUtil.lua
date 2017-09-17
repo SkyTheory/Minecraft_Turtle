@@ -29,12 +29,67 @@ end
 
 -- Variable
 
+function serialize(data)
+  local indexes = {}
+  return serializecast(data, indexes, false)
+end
+
+function serializecast(data, indexes, isTableKey)
+  local datatype = type(data)
+  local datastr
+  if (datatype == "nil") then
+    return "nil"
+  end
+  if (datatype == "string") then
+    return string.format("\"%s\"", data)
+  end
+  if (datatype == "number") then
+    return tostring(data)
+  end
+  if (datatype == "boolean") then
+    return tostring(data)
+  end
+  if (datatype == "table") then
+    if (isTableKey) then
+      error(string.format("%s has key which is table."))
+    end
+    if (indexes[data]) then
+      error("Loop in index")
+    end
+    indexes[data] = true
+    local tbl = {}
+    for k, v in next, data do
+      local kstr = string.format(serializecast(k, indexes, true))
+      local vstr = string.format(serializecast(v, indexes, false))
+      local tdata = string.format("%s = %s", kstr, vstr)
+      table.insert(tbl, tdata)
+    end
+    return string.format("{%s}", table.concat(tbl, ", "))
+  end
+  error("Unserializable object")
+  return nil
+end
+
+function unserialize(data)
+  if (string.match(data, "^\".+\"$")) then
+    return string.sub(data, 2, -2)
+  end
+  if (string.match(data, "^{.+}$")) then
+    return cast(data, "table")
+  end
+  if (data == "true") then return true end
+  if (data == "false") then return false end
+  -- if (data == nil) then return nil end
+  return tonumber(data)
+end
+
+
 function cast(data, dtype)
   if (dtype == "nil") then
     return nil
   end
   if (dtype == "string") then
-    return tostring(data)
+    return data
   end
   if (dtype == "number") then
     return tonumber(data)
@@ -48,13 +103,23 @@ function cast(data, dtype)
     end
   end
   if (dtype == "table") then
-    local dt = split(data, ",%s")
-    return cast(dt[1], dt[2]), cast(dt[3], dt[4])
+    local obj = {}
+    if (string.match(data, "^{.+}$")) then
+      datastr = string.sub(data, 2, -2)
+    end
+    datalist = split(datastr, ",") or {data}
+    for i, v in ipairs(datalist) do
+      local vlist = split(v, "=")
+      local key = unserialize(vlist[1])
+      local var = unserialize(vlist[2])
+      obj[key] = var
+    end
+    return obj
   end
   if (dtype == "function") then
     return getByIndex(_ENV, data)
   end
-  return data
+  error(string.format("Cast failed :%s, %s", data, dtype))
 end
 
 function getByIndex(base, path)
@@ -98,7 +163,9 @@ function split(str, p)
   local list = {}
   if (type(p) == "string") then
     for obj in string.gmatch(str, string.format("[^%s]+", p)) do
-      table.insert(list, obj)
+      local objstr = string.gsub(obj, "^%s+", "")
+      objstr = string.gsub(objstr, "%s+$", "")
+      table.insert(list, objstr)
     end
   end
   if (type(p) == "number") then

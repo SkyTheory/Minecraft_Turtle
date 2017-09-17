@@ -6,6 +6,7 @@ dependency.before("TurtleEx")
 
 local configPath = "/config/AttackExtention_config"
 local config
+local threshold
 
 local looting = PeripheralManager.getMoreTurtlesExtension("Looting")
 
@@ -34,7 +35,8 @@ function loadConfig()
   local file = FileHandler:instance(configPath)
   if (not file:exists()) then createConfigFile(file) end
   file:open("r")
-  config = file:loadDataList()
+  config = file:loadData()
+  threshold = config.Threshold
   file:close()
 end
 
@@ -42,7 +44,7 @@ function createConfigFile(file)
   file:open("w")
   file:writeString("@Fuel threshold setting")
   file:writeString("")
-  file:writeData("threshold", 0)
+  file:writeData("Threshold", 0)
   file:close()
 end
 
@@ -53,7 +55,7 @@ end
 function attackEx(dir)
   if (looting ~= nil and lootingAttack) then
     local fuelLevel = turtle.getFuelLevel()
-    local threshold = tonumber(config.threshold) or 0
+    local threshold = tonumber(config.Threshold) or 0
     if (threshold < fuelLevel) then
       return lootingAttackFn[dir]()
     end
