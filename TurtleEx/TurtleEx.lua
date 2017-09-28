@@ -1,7 +1,7 @@
-version = "2.21"
+version = "2.22"
 
-dependency.require("DigExtension", "AttackExtension", "turnExtension")
-dependency.after("DigExtension", "AttackExtension", "turnExtension")
+dependency.require("MoveExtension", "DigExtension", "AttackExtension", "TurnExtension")
+dependency.after("MoveExtension", "DigExtension", "AttackExtension", "TurnExtension")
 dependency.before()
 
 local moveFn = {}
@@ -13,25 +13,26 @@ local inspectFn = {}
 local suckFn = {}
 local dropFn = {}
 local placeFn = {}
-
-local excavate = true
-local attackable = true
+local condenseFn
+local shiftFn
+local sortFn
 
 function init()
   setFunctions()
 end
 
 function setFunctions()
-  moveFn.FORWARD = turtle.forward
-  moveFn.UP = turtle.up
-  moveFn.DOWN = turtle.down
+  moveFn.FORWARD = MoveExtension.move
+  moveFn.UP = MoveExtension.moveUp
+  moveFn.DOWN = MoveExtension.moveDown
+  moveFn.BACK = turtle.back
   turnFn.RIGHT = turtle.turnRight
   turnFn.LEFT = turtle.turnLeft
-  turnFn.BACK = turnExtension.turnArround
-  turnFn.NORTH = turnExtension.turnNorth
-  turnFn.EAST = turnExtension.turnEast
-  turnFn.SOUTH = turnExtension.turnSouth
-  turnFn.WEST = turnExtension.turnWest
+  turnFn.BACK = TurnExtension.turnArround
+  turnFn.NORTH = TurnExtension.turnNorth
+  turnFn.EAST = TurnExtension.turnEast
+  turnFn.SOUTH = TurnExtension.turnSouth
+  turnFn.WEST = TurnExtension.turnWest
   digFn.FORWARD = DigExtension.dig
   digFn.UP = DigExtension.digUp
   digFn.DOWN = DigExtension.digDown
@@ -55,37 +56,6 @@ function setFunctions()
   placeFn.DOWN = turtle.placeDown
 end
 
-function setExcavate(flag)
-  excavate = flag
-end
-
-function setAttack(flag)
-  attackable = flag
-end
-
-function move(dir)
-  local flag = false
-  repeat
-    if (turtle.getFuelLevel() == 0) then break end
-    flag, err = go(dir)
-    if (err == "Too high to move") then return false, err end
-    if (err == "Too low to move") then return false, err end
-    if (not flag) then
-      if (detectFn[dir]) then
-        -- block
-        if (not excavate) then return false, "Collision with block" end
-        local dflag, derr = digFn[dir]()
-        if (not dflag) then return false, derr end
-      else
-        -- mob
-        if (not attackable) then return false, "Colision with mob" end
-        attackFn[dir]()
-      end
-    end
-  until (flag)
-  return true
-end
-
 function rotate(key)
   if (key == "UP" or key == "DOWN") then
     return key
@@ -95,8 +65,8 @@ function rotate(key)
   end
 end
 
-function go(dir)
-  return moveFn[dir]()
+function move(dir)
+  moveFn[dir]()
 end
 
 function turn(dir)
@@ -131,7 +101,7 @@ function select()
   return turtle.select()
 end
 
-function getFuelLevet()
+function getFuelLevel()
   return turtle.getFuelLevel()
 end
 

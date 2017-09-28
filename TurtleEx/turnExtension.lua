@@ -1,12 +1,23 @@
-version = "1.00"
+version = "1.01"
 
-dependency.require("Coordinate")
-dependency.after("Coordinate")
+dependency.require()
+dependency.after()
 dependency.before("turtleEx")
 
-local coord = Coordinate.getCoord()
+local coord
+
+function turnArround()
+  return turtle.turnRight() and turtle.turnRight()
+end
+
+function linkCoord(c)
+  coord = c
+end
 
 function turnTo(f)
+  if (not coord) then
+    error("Coordinate unspecified")
+  end
   if (f == coord.facing) then
     return true
   end
@@ -21,22 +32,18 @@ function turnTo(f)
   end
 end
 
-function turnArround()
-  return turtle.turnRight() and turtle.turnRight()
-end
-
 function turnNorth()
   return turnTo("NORTH")
 end
 
-function turnEast()
+function turnEast(coord)
   return turnTo("EAST")
 end
 
-function turnSouth()
+function turnSouth(coord)
   return turnTo("SOUTH")
 end
 
-function turnWest()
+function turnWest(coord)
   return turnTo("WEST")
 end

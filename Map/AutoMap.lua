@@ -1,11 +1,12 @@
-version = "1.10"
+version = "1.20"
 
 dependency.require("Map", "AutoMapEvent")
 dependency.after("Map")
 dependency.before("AutoMapEvent")
 
-local autoMap = Map:instance()
+extends("Map")
 
-function getMap()
-  return autoMap
+function constructor(self, coord)
+  super.constructor(self, coord.x, coord.y, coord.z)
+  AutoMapEvent.registerMap(self, coord)
 end

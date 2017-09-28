@@ -1,8 +1,22 @@
-version = "2.00"
+version = "2.10"
 
 dependency.require()
 dependency.after()
 dependency.before("MapManager", "TurtleEx")
+
+-- set, getByIndex
+local debugmessage = false
+
+-- Argument
+
+function fixRange(str)
+  local num = tonumber(str)
+  num = math.modf(num)
+  if (not num) then return 0 end
+  if (num > 0) then num = num - 1 end
+  if (num < 0) then num = num + 1 end
+  return num
+end
 
 -- Item / Block
 
@@ -29,12 +43,8 @@ end
 
 -- Variable
 
-function serialize(data)
-  local indexes = {}
-  return serializecast(data, indexes, false)
-end
-
-function serializecast(data, indexes, isTableKey)
+function serialize(data, i, isTableKey)
+  local indexes = i or {}
   local datatype = type(data)
   local datastr
   if (datatype == "nil") then
@@ -51,7 +61,7 @@ function serializecast(data, indexes, isTableKey)
   end
   if (datatype == "table") then
     if (isTableKey) then
-      error(string.format("%s has key which is table."))
+      error("Object has key which is table.")
     end
     if (indexes[data]) then
       error("Loop in index")
@@ -59,83 +69,103 @@ function serializecast(data, indexes, isTableKey)
     indexes[data] = true
     local tbl = {}
     for k, v in next, data do
-      local kstr = string.format(serializecast(k, indexes, true))
-      local vstr = string.format(serializecast(v, indexes, false))
+      local kstr = string.format(serialize(k, indexes, true))
+      local vstr = string.format(serialize(v, indexes, false))
       local tdata = string.format("%s = %s", kstr, vstr)
       table.insert(tbl, tdata)
     end
     return string.format("{%s}", table.concat(tbl, ", "))
   end
-  error("Unserializable object")
+  error("Serialize failed")
   return nil
 end
 
 function unserialize(data)
   if (string.match(data, "^\".+\"$")) then
+    -- "something"
     return string.sub(data, 2, -2)
   end
   if (string.match(data, "^{.+}$")) then
-    return cast(data, "table")
-  end
-  if (data == "true") then return true end
-  if (data == "false") then return false end
-  -- if (data == nil) then return nil end
-  return tonumber(data)
-end
-
-
-function cast(data, dtype)
-  if (dtype == "nil") then
-    return nil
-  end
-  if (dtype == "string") then
-    return data
-  end
-  if (dtype == "number") then
-    return tonumber(data)
-  end
-  if (dtype == "boolean") then
-    if (data == "true") then
-      return true
-    end
-    if (data == "false") then
-      return false
-    end
-  end
-  if (dtype == "table") then
+    -- {something}
     local obj = {}
-    if (string.match(data, "^{.+}$")) then
-      datastr = string.sub(data, 2, -2)
-    end
-    datalist = split(datastr, ",") or {data}
+    datastr = string.sub(data, 2, -2)
+    datalist = split(datastr, ",")
     for i, v in ipairs(datalist) do
       local vlist = split(v, "=")
       local key = unserialize(vlist[1])
       local var = unserialize(vlist[2])
       obj[key] = var
     end
+    if (obj.classname) then
+      obj.super = {}
+      setmetatable(obj, {__index = GIWCore.indexHandler(obj.fields, _ENV[obj.classname]), __newindex = obj.fields})
+      setmetatable(obj.super, {__index = GIWCore.indexHandler(obj.fields, _ENV[obj.classname].super), __newindex = obj.fields})
+    end
     return obj
   end
-  if (dtype == "function") then
-    return getByIndex(_ENV, data)
-  end
-  error(string.format("Cast failed :%s, %s", data, dtype))
+  if (data == "true") then return true end
+  if (data == "false") then return false end
+  if (data == "nil") then return nil end
+  return tonumber(data) or data
 end
 
-function getByIndex(base, path)
-  local index = base
+function setByIndex(tbl, path, var, mkdir)
+  local index = tbl
   local dt = {}
   for d in string.gmatch(path, "[^%.]+") do
     table.insert(dt, d)
   end
-  for i, var in next, dt do
-    if (index[var] == nil) then
-      print("Tracing failed")
-      return nil
+  for i, v in ipairs(dt) do
+    local key = unserialize(v)
+    if (i ~= #dt) then
+      if (not index[key]) then
+        if (mkdir) then
+          index[key] = {}
+        else
+          if (debugmessage) then print("Tracing failed") end
+          return
+        end
+      end
+      index = index[key]
+    else
+      index[key] = var
     end
-    index = index[var]
   end
+end
+
+function getByIndex(tbl, path, mkdir)
+  local index = tbl
+  local previndex
+  local dt = {}
+  for d in string.gmatch(path, "[^%.]+") do
+    table.insert(dt, d)
+  end
+  for i, v in ipairs(dt) do
+    local key = unserialize(v)
+    previndex = index
+    if (not previndex[key]) then
+      if(i == #dt) then
+        return nil
+      elseif (mkdir) then
+        previndex[key] = {}
+      else
+        if (debugmessage) then print("Tracing failed") end
+        return nil
+      end
+    end
+    index = previndex[key]
+  end
+  local lk = tonumber(dt[#dt]) or dt[#dt]
   return index
+end
+
+function formatIndex(...)
+  local args = {...}
+  local obj = {}
+  for i, v in ipairs(args) do
+    table.insert(obj, serialize(v))
+  end
+  return table.concat(obj, ".")
 end
 
 function copy(var, debug)

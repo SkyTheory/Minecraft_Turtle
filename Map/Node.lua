@@ -1,14 +1,15 @@
-version = 1.00
+version = 1.02
 
 dependency.require()
 dependency.after()
 dependency.before("Map")
 
-function constructor(self, w, d, h, d)
-  self.width = w
-  self.depth = d
-  self.height = h
-  self.display = d
+function constructor(self, x, y, z, s, disp)
+  self.x = x
+  self.y = y
+  self.z = z
+  self.state = s
+  self.display = disp
 end
 
 function setValue(self, k, v)

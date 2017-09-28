@@ -1,112 +1,171 @@
-local version = "1.02"
+version = "1.11"
 
-dependency.require("GIWUtil")
-dependency.after("GIWUtil")
-dependency.before("ItemExtension")
+dependency.require("SlotManager")
+dependency.after("SlotManager")
+dependency.before()
 
---[[
-function positionFuel()
-  if (Ariadna == nil) then return end
-  local sFuelSlot = getLastItem(Ariadna.getFuel())
-  if (sFuelSlot == -1) then
-    Ariadna.switchFuel()
-    sFuelSlot = getLastItem(Ariadna.getFuel())
+function condenseItem(mode)
+  local reverse = false
+  if (mode == false) then reverse = true end
+  local token = SlotManager.saveSlot()
+  for i = 1, 16 do
+    for j = 1, i - 1 do
+      local i2, j2 = i, j
+      if (reverse) then
+        i2 = 17 - i2
+      end
+      shiftItem(j2, i2, nil, true)
+    end
   end
-  if (sFuelSlot ~= -1 and sFuelSlot ~= 16) then
-    local flag = shiftItem(sFuelSlot, 16)
-    if (flag) then
-      Ariadna.setFuelSlot(16)
-      for i = 15, sFuelSlot + 1, -1 do
-        if (turtle.getItemSpace(sFuelSlot) == 0) then break end
-        if (turtle.getItemCount(i) ~= 0) then
-          if (turtle.getItemCount(sFuelSlot) == 0 or isIdenticalItem(sFuelSlot, i, "exact")) then
-            shiftItem(i, sFuelSlot)
-          end
+  SlotManager.loadSlot(token)
+end
+
+function transferFrom(from)
+  local token = SlotManager.saveSlot()
+  local slot = turtle.getSelectedSlot()
+  turtle.select(from)
+  local ok, err = turtle.transferTo(slot)
+  SlotManager.loadSlot(token)
+  return ok, err
+end
+
+function shiftItem(to, from, qty, disregard)
+  local fromSlot = from or turtle.getSelectedSlot()
+  local itemCount = turtle.getItemCount(fromSlot)
+  local key
+  local token
+  if (not canShift(to, from, qty)) then return false end
+  if (not disregard) then
+    token = SlotManager.saveSlot()
+  end
+  if (turtle.getSelectedSlot() ~= fromSlot) then
+    turtle.select(fromSlot)
+  end
+  if (qty) then
+    turtle.transferTo(to, qty)
+  else
+    turtle.transferTo(to)
+  end
+  if (not disregard) then
+    SlotManager.loadSlot(token)
+  end
+  return turtle.getItemCount(from) ~= itemCount
+end
+
+function sortItem(mode)
+  local token = SlotManager.saveSlot()
+  local items = {}
+  local inv = {}
+    local reverse = false
+    if (mode == false) then reverse = true end
+  -- Sort preparing
+  stackItem(mode)
+  if (not SlotManager.getFirstEmptySlot()) then
+    SlotManager.loadSlot(token)
+    return false
+  end
+  -- Get items data
+  for i = 1, 16 do
+    local detail = turtle.getItemDetail(i)
+    if (detail) then
+      local name = detail.name
+      local damage = detail.damage
+      local data = {slot = i, name = name, damage = damage}
+      table.insert(items, data)
+      table.insert(inv, data)
+    else
+      table.insert(inv, {slot = i, name = "EmptySlot", damage = 0})
+    end
+  end
+  -- Table sort
+  table.sort(items, compare(mode))
+  for i = 1, #items do
+    -- sortslot => current putting
+    -- itemslot => target item in
+    local sortslot = i
+    local itemslot = items[sortslot].slot
+    if (reverse) then sortslot = 17 - sortslot end
+    if (sortslot ~= itemslot) then
+      if (not SlotManager.isEmptySlot(sortslot)) then
+        local empty
+        if (not reverse) then
+          empty = SlotManager.getLastEmptySlot()
+        else
+          empty = SlotManager.getFirstEmptySlot()
+        end
+        if (empty == 0) then
+          print(sortslot)
+          SlotManager.loadSlot(token)
+          return false
+        end
+        if (shiftItem(empty, sortslot, nil, true)) then
+          inv[empty], inv[sortslot] = inv[sortslot], inv[empty]
+          inv[empty].slot = empty
+          inv[sortslot].slot = sortslot
+        else
+          SlotManager.loadSlot(token)
+          return false
         end
       end
-    end
-  end
-end
-
---]]
-
-function isEmptySlot(s)
-  local slot = s or turtle.getSelectedSlot()
-  return (not turtle.getItemDetail(s))
-end
-
-function getFirstEmptySlot()
-  return getNextEmptySlot(0)
-end
-
-function getNextEmptySlot(s, reverse)
-  local slot = s
-  if (reverse) then slot = 17 - slot end
-  for i = slot + 1, 16 do
-    local i2 = i
-    if (reverse) then i2 = 17 - i2 end
-    if (isEmptySlot(i2)) then
-      return i2
-    end
-  end
-  return -1
-end
-
-function getLastEmptySlot()
-  return getNextEmptySlot(1, reverse)
-end
-
-function getFirstItem(target, mode)
-  return getNextItem(target, 0)
-end
-
-function getNextItem(target, s, mode, reverse)
-  if (target == nil) then return getNextAnyItem(s, reverse) end
-  local slot = s or turtle.getSelectedSlot()
-  if (reverse) then slot = 17 - slot end
-  local var = target
-  if (type(var) == "string") then
-    var = {name = var}
-  end
-  for i = slot + 1, 16 do
-    local i2 = i
-    if (reverse) then i2 = 17 - i2 end
-    if (target) then
-      if (isIdenticalItem(var, i2, mode)) then
-        return i2
+      if (shiftItem(sortslot, itemslot, nil, true)) then
+        inv[sortslot], inv[itemslot] = inv[itemslot], inv[sortslot]
+        inv[sortslot].slot = sortslot
+        inv[itemslot].slot = itemslot
+      else
+        SlotManager.loadSlot(token)
+        return false
       end
-    else
-      if (turtle.getItemCount() ~= 0) then return i2 end
     end
   end
-  return -1
+  SlotManager.loadSlot(token)
+  return true
 end
 
-function getLastItem(target, mode)
-  return getNextItem(target, 17, mode, true)
-end
-
-function getItemName(var)
-  local detail
-  if (type(var) == "number") then
-    detail = turtle.getItemDetail(slot)
-  end
-  if (type(var) == "table") then
-    detail = var
-  end
-  if (detail) then
-    return detail.name
-  else
-    return nil
+function stackItem(mode)
+  local reverse = false
+  if (mode == false) then reverse = true end
+  for i = 1, 16 do
+    local i2 = i
+    if (not reverse) then i2 = 17 - i2 end
+    for j = i + 1, 16 do
+      local j2 = j
+      if (not reverse) then j2 = 17 - j2 end
+      if (turtle.getItemDetail(i2) and turtle.getItemDetail(j2)) then
+        shiftItem(j2, i2, nil, true)
+      end
+    end
   end
 end
 
-function isIdenticalItem(var1, var2, switch)
-  local tbl1
-  local tbl2
-  if (type(var1) == "number") then tbl1 = turtle.getItemDetail(var1) end
-  if (type(var1) == "table") then tbl1 = var1 end
-  if (type(var2) == "number") then tbl2 = turtle.getItemDetail(var2) end
-  if (type(var2) == "table") then tbl2 = var2 end
-  return GIWUtil.isIdentical(tbl1, tbl2, switch)
+function canShift(to, from, qty)
+  local quantity = qty or 1
+  -- No items
+  if (turtle.getItemCount(from) == 0) then return false end
+  -- Space shortage
+  if (turtle.getItemSpace(to) < quantity) then return false end
+  -- Empty slot
+  if (turtle.getItemCount(to) == 0) then return true end
+  -- Identical items
+  if (SlotManager.isIdenticalItem(to, from, "exact")) then return true end
+  -- Differemt items
+  return false
+end
+
+function compare(mode)
+  local reverse = false
+  if (mode == false) then reverse = true end
+  return function(data1, data2)
+    if (data1.name == data2.name) then
+      if (data1.damage == data2.damage) then
+        if (reverse) then
+          return (data1.slot > data2.slot)
+        else
+          return (data1.slot < data2.slot)
+        end
+      else
+        return (data1.damage < data2.damage)
+      end
+    end
+    return (data1.name < data2.name)
+  end
 end

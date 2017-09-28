@@ -1,19 +1,18 @@
-version = "1.01"
+version = "1.02"
 
-dependency.require("GIWUtil", "FileHandler", "PeripheralManager")
-dependency.after("GIWUtil", "FileHandler", "PerioheralManager")
+dependency.require("GIWUtil", "ConfigHandler", "PeripheralManager")
+dependency.after("GIWUtil", "ConfigHandler", "PerioheralManager")
 dependency.before("TurtleEx")
-
-local configPath = "/config/AttackExtention_config"
-local config
-local threshold
-
-local looting = PeripheralManager.getMoreTurtlesExtension("Looting")
 
 local attackFn = {}
 local lootingAttackFn = {}
 
-local lootingAttack = false
+local looting = PeripheralManager.getMoreTurtlesExtension("Looting")
+
+local lootingAttack = true
+
+local configPath = "AttackExtention_config"
+local config
 
 function init()
   setFunctions()
@@ -32,7 +31,7 @@ function setFunctions()
 end
 
 function loadConfig()
-  local file = FileHandler:instance(configPath)
+  local file = ConfigHandler:instance(configPath)
   if (not file:exists()) then createConfigFile(file) end
   file:open("r")
   config = file:loadData()

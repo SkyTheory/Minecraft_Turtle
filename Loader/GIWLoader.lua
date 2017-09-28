@@ -1,19 +1,10 @@
--- version = "1.02"
+-- version = "1.06"
 
 local GIWLoader = {}
 
-local loadpath = {}
-loadpath.root = "/"
-loadpath.api = "/API/"
-loadpath.event = "/API/Event/"
-loadpath.inventory = "/API/Inventory"
-loadpath.map = "/API/Map/"
-loadpath.peripheral = "/API/Peripheral/"
-loadpath.turtleex = "/API/TurtleEx/"
-loadpath.util = "/API/Util/"
-loadpath.debug = "/debug/"
-
 local loadState = {}
+local loaded = {}
+local dummy = function() end
 
 local debugmessage1 = false
 local debugmessage2 = false
@@ -110,7 +101,8 @@ function GIWLoader.postLoadAPI()
   local failedAPI = {}
   for i, path in ipairs(loadState.sortedPaths) do
     local name = loadState.sortedNames[i]
-    local postLoadENV, apiENV = GIWLoader.makePostLoadENV()
+    local postLoadENV, apiENV = GIWLoader.makePostLoadENV(name)
+    _ENV[name] = {}
     local apifunc, err = loadfile(path, postLoadENV)
     if (err) then
       GIWCore.colorText(err, colors.red)
@@ -130,6 +122,7 @@ function GIWLoader.postLoadAPI()
       end
     end
     _ENV[name] = apiENV
+    loaded[name] = true
   end
   if (debugmessage3) then
     print("API loading completed")
@@ -144,9 +137,11 @@ end
 
 function GIWLoader.addAPI(rawname)
   local name, path = GIWLoader.getNameAndPath(rawname)
-  table.insert(loadState.names, name)
-  table.insert(loadState.paths, path)
-  loadState.preLoading[name] = true
+  if (not loaded[name]) then
+    table.insert(loadState.names, name)
+    table.insert(loadState.paths, path)
+    loadState.preLoading[name] = true
+  end
   if (debugmessage2) then
     print(string.format("Preload API :%s", name))
   end
@@ -160,6 +155,14 @@ end
 
 
 function GIWLoader.getPath(name)
+  local rloadpath = fs.list("/API")
+  local loadpath = {}
+  for i, v in ipairs(rloadpath) do
+    local path = fs.combine("/API", v)
+    if (fs.isDir(path)) then
+      table.insert(loadpath, path)
+    end
+  end
   for k, dir in next, loadpath do
     local path = fs.combine(dir, name)
     if (fs.exists(path) and not fs.isDir(path)) then
@@ -201,27 +204,27 @@ function GIWLoader.makePreLoadENV(apiname)
       loadState.wait[name][apiname] = true
     end
   end
-  ENV.extends = function(apiname)
-    ENV.dependency.after(apiname)
-    ENV.dependency.require(apiname)
-  end
+  ENV.extends = dummy
   return ENV
 end
 
-function GIWLoader.makePostLoadENV()
+function GIWLoader.makePostLoadENV(name)
   local ENV = {}
   local apiENV = {}
-  local dummy = function() end
   ENV.dependency = {}
   ENV.dependency.require = dummy
   ENV.dependency.after = dummy
   ENV.dependency.before = dummy
-  ENV.extends = function(classname)
-    local superclass = _ENV[classname]
-    ENV.super = superclass
-    setmetatable(apiENV, {index = superclass})
+  ENV.extends = function(class)
+    ENV.super = _ENV[class]
+    setmetatable(apiENV, {__index = _ENV[class]})
+    if (ENV.super.constructor) then
+      apiENV.constructor = ENV.super.constructor
+    end
   end
+  ENV.class = apiENV
   setmetatable(ENV, {__index = _ENV})
+  apiENV.classname = name
   apiENV.instance = GIWLoader.instance
   apiENV.constructor = dummy
   return ENV, apiENV
@@ -229,25 +232,13 @@ end
 
 function GIWLoader.instance(self, ...)
   local obj = {}
+  obj.classname = self.classname
   obj.fields = {}
   obj.super = {}
-  setmetatable(obj, {__index = GIWLoader.indexHandler(obj.fields, self), __newindex = obj.fields})
-  setmetatable(obj.super, {__index = GIWLoader.indexHandler(obj.fields, self.super), __newindex = obj.fields})
+  setmetatable(obj, {__index = GIWCore.indexHandler(obj.fields, self), __newindex = obj.fields})
+  setmetatable(obj.super, {__index = GIWCore.indexHandler(obj.fields, self.super), __newindex = obj.fields})
   obj:constructor(...)
   return obj
-end
-
-function GIWLoader.indexHandler(...)
-  -- returns A[key] or B[key] or C[key] or...
-  local itbl = {...}
-  return function(t, k)
-    for ii, iv in next, itbl do
-      if (iv[k] ~= nil) then
-        return iv[k]
-      end
-    end
-    return nil
-  end
 end
 
 return GIWLoader.loadAPI

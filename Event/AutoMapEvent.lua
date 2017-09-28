@@ -1,15 +1,16 @@
-version = "2.10"
+version = "2.30"
 
 dependency.require("EventHandler", "Coordinate", "AutoMap", "MoveEvent")
 dependency.after("EventHandler", "DigExtension", "Coordinate", "AutoMap", "MoveEvent")
-dependency.before("TurtleEx")
+dependency.before("MoveExtension", "TurtleEx")
 
 local autoMap
 
+local coord
 local obstruction = "+"
+local blank = "."
 
 function init()
-  autoMap = AutoMap.getMap()
   registerEvent()
 end
 
@@ -19,73 +20,69 @@ function registerEvent()
   --turtle.back = EventHandler.register(turtle.back)
   --turtle.up = EventHandler.register(turtle.up)
   --turtle.down = EventHandler.register(turtle.down)
-  EventHandler.addEvent(turtle.forward, extendEvent)
-  EventHandler.addEvent(turtle.back, extendEvent)
-  EventHandler.addEvent(turtle.up, extendEvent)
-  EventHandler.addEvent(turtle.down, extendEvent)
   if (DigExtension) then
     DigExtension.dig = EventHandler.register(DigExtension.dig)
     DigExtension.digUp = EventHandler.register(DigExtension.digUp)
     DigExtension.digDown = EventHandler.register(DigExtension.digDown)
-    EventHandler.addEvent(DigExtension.dig, digEvent)
-    EventHandler.addEvent(DigExtension.digUp, digUpEvent)
-    EventHandler.addEvent(DigExtension.digDown, digDownEvent)
   else
     turtle.dig = EventHandler.register(turtle.dig)
     turtle.digUp = EventHandler.register(turtle.digUp)
     turtle.digDown = EventHandler.register(turtle.digDown)
-    EventHandler.addEvent(turtle.dig, ndigEvent)
-    EventHandler.addEvent(turtle.digUp, ndigUpEvent)
-    EventHandler.addEvent(turtle.digDown, ndigDownEvent)
-
   end
 end
 
-function extendEvent(flag)
-  if (flag) then
-    local c = Coordinate.getCoord()
-    autoMap:extend(c.width, c.depth, c.height)
+function registerMap(map, coord)
+  EventHandler.addEvent(turtle.forward, blankEvent(map, coord))
+  EventHandler.addEvent(turtle.back, blankEvent(map, coord))
+  EventHandler.addEvent(turtle.up, blankEvent(map, coord))
+  EventHandler.addEvent(turtle.down, blankEvent(map, coord))
+  if (DigExtension) then
+    EventHandler.addEvent(DigExtension.dig, digEvent(map, coord))
+    EventHandler.addEvent(DigExtension.digUp, digUpEvent(map, coord))
+    EventHandler.addEvent(DigExtension.digDown, digDownEvent(map, coord))
+  else
+    EventHandler.addEvent(turtle.dig, digEvent(map, coord))
+    EventHandler.addEvent(turtle.digUp, digUpEvent(map, coord))
+    EventHandler.addEvent(turtle.digDown, digDownEvent(map, coord))
   end
 end
 
-function obstructed(dir)
-  local nc = Coordinate.getNextCoord(dir)
-  autoMap:setValue(nc.width, nc.depth, nc.height, "display", obstruction)
-end
-
-function digEvent(flag)
-  if (not flag) then
-    obstructed("FORWARD")
+function blankEvent(map, coord)
+  return function(flag)
+    if (flag) then
+      map:setValue(coord.x, coord.y, coord.z, "state", "blank")
+      map:setValue(coord.x, coord.y, coord.z, "display", blank)
+    end
   end
 end
 
-function digUpEvent(flag)
-  if (not flag) then
-    obstructed("UP")
+function obstructed(map, coord, dir)
+  local nc = coord:getNextCoord(dir)
+  map:setValue(nc.x, nc.y, nc.z, "state", "obstruction")
+  map:setValue(nc.x, nc.y, nc.z, "display", obstruction)
+end
+
+function digEvent(map, coord)
+  return function(flag, err)
+    if (not flag and (err == "Unbreakable block detected" or err == "Protected block detected")) then
+      obstructed(map, coord, "FORWARD")
+    end
   end
 end
 
-function digDownEvent(flag)
-  if (not flag) then
-    obstructed("DOWN")
+function digUpEvent(map, coord)
+  return function(flag, err)
+    if (not flag and (err == "Unbreakable block detected" or err == "Protected block detected")) then
+      obstructed(map, coord, "UP")
+    end
   end
 end
 
-function ndigEvent(flag, err)
-  if (not flag and err == "Unbreakable block detected") then
-    obstructed("FORWARD")
-  end
-end
-
-function ndigUpEvent(flag, err)
-  if (not flag and err == "Unbreakable block detected") then
-    obstructed("UP")
-  end
-end
-
-function ndigDownEvent(flag, err)
-  if (not flag and err == "Unbreakable block detected") then
-    obstructed("DOWN")
+function digDownEvent(map, coord)
+  return function(flag, err)
+    if (not flag and (err == "Unbreakable block detected" or err == "Protected block detected")) then
+      obstructed(map, coord, "DOWN")
+    end
   end
 end
 

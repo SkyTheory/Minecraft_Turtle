@@ -1,19 +1,19 @@
-version = "1.00"
+version = "1.01"
 
-dependency.require("GIWUtil", "FileHandler", "PeripheralManager")
-dependency.after("GIWUtil", "FileHandler", "PeripheralManager")
+dependency.require("GIWUtil", "ConfigHandler", "PeripheralManager")
+dependency.after("GIWUtil", "ConfigHandler", "PeripheralManager")
 dependency.before("TurtleEx")
-
-local configPath = "/config/DigExtention_config"
-local config
-
-local fortune = PeripheralManager.getMoreTurtlesExtension("Fortune")
-local silktouch = PeripheralManager.getMoreTurtlesExtension("SilkTouch")
 
 local digFn = {}
 local inspectFn = {}
 local fortuneDig = {}
 local silktouchDig = {}
+
+local fortune = PeripheralManager.getMoreTurtlesExtension("Fortune")
+local silktouch = PeripheralManager.getMoreTurtlesExtension("SilkTouch")
+
+local configPath = "DigExtention_config"
+local config
 
 function init()
   setFunctions()
@@ -40,7 +40,7 @@ function setFunctions()
 end
 
 function loadConfig()
-  local file = FileHandler:instance(configPath)
+  local file = ConfigHandler:instance(configPath)
   if (not file:exists()) then createConfigFile(file) end
   file:open("r")
   config = file:loadDataList()
@@ -110,7 +110,7 @@ end
 function digEx(dir)
   local flag, data = inspectFn[dir]()
   if (not flag) then return false, "Nothing to dig here" end
-  if (isProtect(data)) then return false, "Protected block" end
+  if (isProtect(data)) then return false, "Protected block detected" end
   if (fortune ~= nil and isFortune(data)) then return fortuneDig[dir]() end
   if (silktouch ~= nil and isSilkTouch(data)) then return silktouchDig[dir]() end
   return digFn[dir]()
