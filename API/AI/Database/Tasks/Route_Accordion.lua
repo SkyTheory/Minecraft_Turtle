@@ -1,58 +1,64 @@
-version = 1.00
+version = 1.35
 
-requireAPI("Map")
+requireAPI("Map", "RouteUtil")
 
-function setRoute(obj)
-  local condition = function(info, node)
-    return (info.map:getState(node.x, node.y, node.z) == obj)
-  end
+function setRoute(pass, goal)
+  local passState = pass
+  local goalState = goal or passState
+  local passCondition = RouteUtil.condition(passState)
+  local goalCondition = RouteUtil.condition(goalState)
   return function(info)
-    local route = getRoute(info, condition)
+    local route = getRoute(info, passCondition, goalCondition)
     info.route = route
   end
 end
 
 --------
 
-function getRoute(info, condition)
+function getRoute(info, passCondition, goalCondition)
   local route = {}
-  local rc = GIWUtil.copy(info.coord.fields)
-  local width = info.range.width
-  local depth = info.range.depth
+  local vindex = 0
+  local move
+  local node = GIWUtil.copy(info.coord.fields)
+  local direction
+  local width = info.range.maxWidth
+  local depth = info.range.minDepth
   repeat
-    local next
-    if (rc.x % 2 == 0) then
-      if (rc.z > depth) then
-        rc.z = rc.z - 1
-        if (not condition(info, rc)) then break end
-        next = "NORTH"
-      else
-        if (rc.x < width) then
-          rc.x = rc.x + 1
-          if (not condition(info, rc)) then break end
-          next = "EAST"
-        end
+    direction = nil
+    move = false
+    if (node.x % 2 == 0) then
+      if (node.z > depth) then
+        direction = "NORTH"
+      elseif (node.x < width) then
+        direction = "EAST"
       end
     else
-      if (rc.z < 0) then
-        rc.z = rc.z + 1
-        if (not condition(info, rc)) then break end
-        next = "SOUTH"
-      else
-        if (rc.x < width) then
-          rc.x = rc.x + 1
-          if (not condition(info, rc)) then break end
-          next = "EAST"
-        end
+      if (node.z < 0) then
+        direction = "SOUTH"
+      elseif (node.x < width) then
+        direction = "EAST"
       end
     end
-    if (next ~= nil) then
-      table.insert(route, next)
+    if (direction == nil) then break end
+    node = Coordinate.getNextCoord(node, direction)
+    if (passCondition(info, node)) then
+      table.insert(route, direction)
+      move = true
+      if (goalCondition(info, node)) then
+        vindex = #route
+      end
+    elseif(goalCondition(info, node)) then
+      table.insert(route, direction)
+      vindex = #route
     end
-  until(next == nil)
-  if (next(route)) then
-    table.insert(route, "EXIT")
-    return route
+  until(not move)
+  if (vindex ~= 0) then
+    local result = {}
+    for i = 1, vindex do
+      result[i] = route[i]
+    end
+    table.insert(result, "EXIT")
+    return result
   end
   return nil
 end

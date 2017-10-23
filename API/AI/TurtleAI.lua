@@ -1,4 +1,4 @@
-local version = "1.01"
+local version = "1.02"
 
 dependency.require("AIDatabase", "Information")
 dependency.after("AIDatabase", "Information")
@@ -30,6 +30,7 @@ function engine(logpath, isResume)
     print("AI tasks complete.")
     print(string.format("Day - %i Time - %f", os.day(), os.time()))
   end
+  info:simplificationLog()
   fs.delete("startup")
 end
 

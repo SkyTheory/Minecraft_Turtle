@@ -1,4 +1,4 @@
-version = "2.10"
+version = "2.30"
 
 dependency.require("GIWUtil", "FileHandler")
 dependency.after("GIWUtil", "FileHandler")
@@ -6,6 +6,7 @@ dependency.before()
 
 local limitbackup = 3
 local debugmode = false
+local simplificationTime = 180
 
 function constructor(self, tbl, name)
   self.loglist = {}
@@ -19,6 +20,7 @@ function constructor(self, tbl, name)
   self.tempkeys = {}
   self.logday = 0
   self.logtime = 0
+  self.slogtime = os.day() * 24 + os.time()
   self.path = fs.combine("/log", name)
   self.data = FileHandler:instance(fs.combine(self.path, "data"))
   self.index = FileHandler:instance(fs.combine(self.path, "index"))
@@ -41,6 +43,11 @@ function saveLog(self)
   self.data:save()
   self.data:close()
   self:saveIndex()
+  local simp = os.day() * 24 + os.time()
+  if (self.slogtime < simp - simplificationTime * 0.02) then
+    self:simplification()
+    self.slogtime = simp
+  end
 end
 
 function loadLog(self)
@@ -57,7 +64,7 @@ function loadLog(self)
     if (string.match(data, "^@")) then
       if (not checkTimeStamp(data)) then break end
     else
-      self:loadData(data)
+      self:loadData(self.logtable, data)
     end
   end
   GIWUtil.restoreMetaTable(self.logtable)
@@ -65,6 +72,18 @@ function loadLog(self)
   self:backupLog()
   self:saveLog()
 end
+
+function setTemporaryData(self, key)
+  self.tempkeys[GIWUtil.serialize(key)] = true
+end
+
+function delete(self)
+  self.data:delete()
+  self.index:delete()
+  self.temp:delete()
+end
+
+------------------------
 
 function saveIndex(self)
   self.index:open("w")
@@ -94,6 +113,13 @@ function loadIndex(self)
   self.temp:close()
 end
 
+function registerIndex(self, key)
+  if (self.indexk[key] == nil) then
+    table.insert(self.indexn, key)
+    self.indexk[key] = #self.indexn
+  end
+end
+
 function getChange(self)
   local old = GIWUtil.copy(self.loglist)
   local new = GIWUtil.copy(self.logtable)
@@ -103,15 +129,16 @@ function getChange(self)
   end
   local log = {}
   local index = {}
-  getUpdate(old, new, log, index)
-  getRemove(old, new, log, index)
+  getUpdate(old, new, log)
+  getRemove(old, new, log)
   self.loglist = new
   return log
 end
 
-function getUpdate(var1, var2, log, index)
+function getUpdate(var1, var2, log, it)
   local old = var1
   local new = var2
+  local index = it or {}
   for k, v in next, new do
     local kindex = GIWUtil.copy(index)
     table.insert(kindex, k)
@@ -131,9 +158,10 @@ function getUpdate(var1, var2, log, index)
   end
 end
 
-function getRemove(var1, var2, log, index)
+function getRemove(var1, var2, log, it)
   local old = var1
   local new = var2
+  local index = it or {}
   for k, v in next, old do
     local kindex = GIWUtil.copy(index)
     table.insert(kindex, k)
@@ -142,18 +170,6 @@ function getRemove(var1, var2, log, index)
     else
       table.insert(log, {index = kindex, value = nil})
     end
-  end
-end
-
-function timeStamp(self)
-  if (self.logday ~= os.day() or self.logtime ~= os.time()) then
-    self.data:write(string.format("$@%i/%f", os.day(), os.time()))
-    if (debugmode) then
-      self.data:write("\n")
-    end
-    self.data:save()
-    self.logday = os.day()
-    self.logtime = os.time()
   end
 end
 
@@ -170,7 +186,7 @@ function writeLog(self, v)
   end
 end
 
-function loadData(self, data)
+function loadData(self, tbl, data)
   local list = GIWUtil.split(data, ":")
   local index
   local value
@@ -183,7 +199,7 @@ function loadData(self, data)
     value = self:keyDecryption(list[2])
     value = GIWUtil.unserialize(value)
   end
-  GIWUtil.setByIndex(self.logtable, index, value, true)
+  GIWUtil.setByIndex(tbl, index, value, true)
 end
 
 function keyProcessing(self, obj)
@@ -221,25 +237,51 @@ function keyDecryption(self, obj)
   return table.concat(keys, ".")
 end
 
-function registerIndex(self, key)
-  if (self.indexk[key] == nil) then
-    table.insert(self.indexn, key)
-    self.indexk[key] = #self.indexn
+function simplification(self)
+  local simpleLog = {}
+  local backtime = os.day() * 24 + os.time() - simplificationTime * 0.02
+  if (not self.data:exists()) then return end
+  self:loadIndex()
+  self.data:open("r")
+  local lines = {}
+  for line in self.data.handler.readLine do
+    table.insert(lines, line)
   end
-end
-
-function checkTimeStamp(line)
-  local tsstr = string.sub(line, 2)
-  local ts = GIWUtil.split(tsstr, "/")
-  local tsday = tonumber(ts[1])
-  local tstime = tonumber(ts[2])
-  if (tsday > os.day()) then return false end
-  if (tsday == os.day() and tstime > os.time()) then return false end
-  return true
-end
-
-function setTemporaryData(self, key)
-  self.tempkeys[GIWUtil.serialize(key)] = true
+  self.data:close()
+  local log = table.concat(lines)
+  local logDatas = GIWUtil.split(log, "$")
+  local oldDatas = {}
+  local pindex = 0
+  for i, data in ipairs(logDatas) do
+    if (string.match(data, "^@")) then
+      if (not checkTimeStamp(data, backtime)) then
+        pindex = i - 1
+        break
+      end
+    else
+      table.insert(oldDatas, data)
+    end
+  end
+  for i = 1, pindex do
+    table.remove(logDatas, 1)
+  end
+  for i, v in ipairs(oldDatas) do
+    self:loadData(simpleLog, v)
+  end
+  local sclog = {}
+  getUpdate({}, simpleLog, sclog)
+  self.data:open("w")
+  self:timeStamp(backtime)
+  for k, v in ipairs(sclog) do
+    self:writeLog(v)
+  end
+  for i, v in ipairs(logDatas) do
+    if (debugmode) then
+      self.data:write("\n")
+    end
+    self.data:write(string.format("$%s", v))
+  end
+  self.data:close()
 end
 
 function backupLog(self)
@@ -269,8 +311,23 @@ function backup(dir, name, limit)
   end
 end
 
-function delete(self)
-  self.data:delete()
-  self.index:delete()
-  self.temp:delete()
+function timeStamp(self, pos)
+  if (self.logday ~= os.day() or self.logtime ~= os.time()) then
+    local ts = pos or (os.day() * 24 + os.time())
+    self.data:write(string.format("$@%f", ts))
+    if (debugmode) then
+      self.data:write("\n")
+    end
+    self.data:save()
+    self.logday = os.day()
+    self.logtime = os.time()
+  end
+end
+
+function checkTimeStamp(line, pos)
+  local tsstr = string.sub(line, 2)
+  local tspos = tonumber(tsstr)
+  local cpos = pos or (os.day() * 24 + os.time())
+  if (tspos > cpos) then return false end
+  return true
 end

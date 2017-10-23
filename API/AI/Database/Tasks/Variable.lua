@@ -1,4 +1,4 @@
-version = 1.00
+version = 1.10
 
 requireAPI()
 
@@ -21,8 +21,51 @@ function setRange2D(info)
   until(tonumber(depth) and tonumber(depth) > 0)
   width = GIWUtil.fixRange(width)
   depth = - GIWUtil.fixRange(depth)
-  info.range = {width = width, depth = depth}
+  info.range = {
+    minWidth = 0,
+    maxWidth = width,
+    minDepth = depth,
+    maxDepth = 0
+  }
   info.map:extend(width, 0, depth)
+end
+
+function setRange3D(info)
+  local width
+  local depth
+  local height
+  local p1, p2 = term.getCursorPos()
+  repeat
+    term.setCursorPos(p1, p2)
+    term.clearLine()
+    io.write("Width: ")
+    width = io.read()
+  until(tonumber(width) and tonumber(width) > 0)
+  p1, p2 = term.getCursorPos()
+  repeat
+    term.setCursorPos(p1, p2)
+    term.clearLine()
+    io.write("Depth: ")
+    depth = io.read()
+  until(tonumber(depth) and tonumber(depth) > 0)
+  p1, p2 = term.getCursorPos()
+  repeat
+    term.setCursorPos(p1, p2)
+    term.clearLine()
+    io.write("Height: ")
+    height = io.read()
+  until(tonumber(height) and tonumber(height) > 0)
+  width = GIWUtil.fixRange(width)
+  depth = - GIWUtil.fixRange(depth)
+  height = GIWUtil.fixRange(height) - 1
+  info.range = {
+    minWidth = 0,
+    maxWidth = width,
+    minDepth = depth,
+    maxDepth = 0,
+    minHeight = 0,
+    maxHeight = height
+  }
 end
 
 function setState(s)
@@ -33,7 +76,7 @@ end
 
 function setData(index, v)
   return function(info)
-    GIWUtil.setByIndex(info.fields, index, v, true)
+    GIWUtil.setByIndex(info.fields, index, v)
   end
 end
 

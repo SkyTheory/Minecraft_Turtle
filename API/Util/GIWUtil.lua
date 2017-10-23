@@ -1,4 +1,4 @@
-version = "2.30"
+version = "2.31"
 
 dependency.require()
 dependency.after()
@@ -112,6 +112,8 @@ function unserialize(data)
   return tonumber(data) or data
 end
 
+-- Table
+
 function setByIndex(tbl, path, var, mkdir)
   local index = tbl
   local dt = {}
@@ -146,7 +148,7 @@ function getByIndex(tbl, path, mkdir)
   for i, v in ipairs(dt) do
     local key = unserialize(v)
     previndex = index
-    if (not previndex[key]) then
+    if (previndex[key] == nil) then
       if(i == #dt) then
         return nil
       elseif (mkdir) then
@@ -158,7 +160,6 @@ function getByIndex(tbl, path, mkdir)
     end
     index = previndex[key]
   end
-  local lk = tonumber(dt[#dt]) or dt[#dt]
   return index
 end
 

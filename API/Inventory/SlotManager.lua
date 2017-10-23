@@ -1,4 +1,4 @@
-version = "1.20"
+version = "1.21"
 
 dependency.require("GIWUtil", "TurtleEx")
 dependency.after("GIWUtil", "TurtleEx")
@@ -33,8 +33,10 @@ end
 
 function getNextEmptySlot(s, mode)
   local reverse = (mode == false)
-  local slot = s
-  if (reverse) then slot = 17 - slot end
+  local slot = s or turtle.getSelectedSlot()
+  if (reverse) then
+    slot = 17 - slot
+  end
   for i = slot + 1, 16 do
     local i2 = i
     if (reverse) then i2 = 17 - i2 end
@@ -47,6 +49,16 @@ end
 
 function getLastEmptySlot()
   return getNextEmptySlot(17, false)
+end
+
+function getEmptySlotCount()
+  local count = 0
+  for i = 1, 16 do
+    if (isEmptySlot(i)) then
+      count = count + 1
+    end
+  end
+  return count
 end
 
 function getFirstItem(target, mode)
@@ -81,6 +93,24 @@ end
 
 function getLastItem(target, mode)
   return getNextItem(target, 17, mode, false)
+end
+
+function getItemCountAll(target, mode)
+  local count = 0
+  local var = target
+  if (type(var) == "string") then
+    var = {name = var}
+  end
+  for i = 1, 16 do
+    if (target) then
+      if (isIdenticalItem(var, i, mode)) then
+        count = count + turtle.getItemCount(i)
+      end
+    else
+      count = count + turtle.getItemCount(i)
+    end
+  end
+  return count
 end
 
 function getLastAnyItem(s, mode)

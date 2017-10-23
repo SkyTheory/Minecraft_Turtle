@@ -1,4 +1,4 @@
-version = "1.20"
+version = "1.21"
 
 dependency.require("LogHandler", "Coordinate", "AutoMap")
 dependency.after("LogHandler", "Coordinate", "AutoMap")
@@ -53,5 +53,11 @@ end
 function backupLog(self)
   if (logs[self]) then
     logs[self]:backupLog()
+  end
+end
+
+function simplificationLog(self)
+  if (logs[self]) then
+    logs[self]:simplification()
   end
 end

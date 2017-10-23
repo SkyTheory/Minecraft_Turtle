@@ -1,4 +1,4 @@
-version = "1.04"
+version = "1.05"
 
 dependency.require("GIWUtil", "ConfigHandler", "ItemManager", "SlotManager")
 dependency.after("GIWUtil", "ConfigHandler", "ItemManager", "SlotManager")
@@ -91,14 +91,14 @@ function hasFuelByRange(range)
 end
 
 function getFuelCount(range)
-  local xr = math.abs(range.width)
-  local zr = math.abs(range.depth)
+  local xr = math.abs(range.maxWidth - range.minWidth)
+  local zr = math.abs(range.maxDepth - range.minDepth)
   local farthest = xr + zr + (math.floor(xr * zr / 2))
-  if (range.height == nil) then
+  if (range.minHeight == nil) then
     return farthest
   else
-    local yr = math.abs(range.height)
-    local farthest = farthest + (math.floor(plane * yr / 2))
+    local yr = math.abs(range.maxHeight - range.minHeight)
+    local farthest = farthest + (math.floor(farthest * yr / 2))
     return farthest
   end
 end

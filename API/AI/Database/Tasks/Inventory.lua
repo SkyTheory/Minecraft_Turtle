@@ -1,4 +1,4 @@
-version = 1.00
+version = 1.01
 
 requireAPI("TurtleEx", "Inventory", "ConfigHandler")
 
@@ -65,10 +65,15 @@ function dispose(path)
   return function(info)
     Inventory.condenseItem(false)
     local dir
-    if (not TurtleEx.detect("FORWARD")) then dir = "UP" end
+    local taflag
+    if (not TurtleEx.detect("FORWARD")) then dir = "FORWARD" end
     if (not TurtleEx.detect("UP")) then dir = "UP" end
     if (not TurtleEx.detect("DOWN")) then dir = "DOWN" end
-    if (not dir) then return end
+    if (not dir) then
+      TurtleEx.turn("BACK")
+      if (not TurtleEx.detect("FORWARD")) then dir = "FORWARD" end
+      taflag = true
+    end
     for i = 1, #config.Disposable do
       local dslot
       repeat
@@ -78,6 +83,9 @@ function dispose(path)
           TurtleEx.drop(dir)
         end
       until(not dslot)
+    end
+    if (taflag) then
+      TurtleEx.turn("BACK")
     end
   end
 end
