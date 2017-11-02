@@ -299,9 +299,6 @@ function simplification(self, log)
   getUpdate({}, simpleLog, sclog)
   local result = self:timeStamp(backtime) -- or ""
   if (#sclog == 0) then result = "" end
-  print(os.day() * 24 + os.time())
-  print(backtime)
-  print(result)
   for k, v in ipairs(sclog) do
     result = string.format("%s%s", result, self:writeLog(v))
     if (debugmode) then
