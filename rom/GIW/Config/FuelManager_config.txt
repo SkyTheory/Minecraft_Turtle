@@ -1,0 +1,23 @@
+@Fuel margin setting
+
+Margin : 80
+
+@Displey setting
+
+Display : true
+
+@Automatic switch of fuel setting
+
+Switch : true
+
+@Fuel item settings
+
+Fuel : {"display" = "RF_Heating_Coil", "name" = "extrautils2:ingredients", "damage" = 13}
+Fuel : {"display" = "Red_Coal", "name" = "extrautils2:ingredients", "damage" = 4}
+Fuel : {"display" = "Charcoal", "name" = "minecraft:coal", "damage" = 1}
+Fuel : {"display" = "Blaze_Rod", "name" = "minecraft:blaze_rod"}
+Fuel : {"display" = "Block_of_Coal", "name" = "minecraft:coal_block"}
+Fuel : {"display" = "Coal", "name" = "minecraft:coal", "damage" = 0}
+Fuel : {"display" = "Lava", "name" = "minecraft:lava_bucket"}
+Fuel : {"display" = "Log", "name" = "minecraft:log"}
+Fuel : {"display" = "Log", "name" = "minecraft:log2"}

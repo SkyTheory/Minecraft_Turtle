@@ -1,0 +1,9 @@
+@Chest orientations
+
+Fuel : {0, "EAST"}
+Material : {1, "EAST"}
+
+@Error message
+
+MaterialError1 : "Please put material into slot 1"
+MaterialError2 : "Press any key to continue"

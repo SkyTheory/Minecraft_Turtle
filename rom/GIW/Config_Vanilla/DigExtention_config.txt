@@ -1,0 +1,55 @@
+@Protect setting
+
+Protect : {"name" = "minecraft:chest"}
+Protect : {"name" = "minecraft:trapped_chest"}
+Protect : {"name" = "minecraft:ender_chest"}
+Protect : {"name" = "minecraft:mob_spawner"}
+Protect : {"name" = "minecraft:white_shulker_box"}
+Protect : {"name" = "minecraft:orange_shulker_box"}
+Protect : {"name" = "minecraft:magenta_shulker_box"}
+Protect : {"name" = "minecraft:light_blue_shulker_box"}
+Protect : {"name" = "minecraft:yellow_shulker_box"}
+Protect : {"name" = "minecraft:lime_shulker_box"}
+Protect : {"name" = "minecraft:pink_shulker_box"}
+Protect : {"name" = "minecraft:gray_shulker_box"}
+Protect : {"name" = "minecraft:silver_shulker_box"}
+Protect : {"name" = "minecraft:cyan_shulker_box"}
+Protect : {"name" = "minecraft:purple_shulker_box"}
+Protect : {"name" = "minecraft:blue_shulker_box"}
+Protect : {"name" = "minecraft:brown_shulker_box"}
+Protect : {"name" = "minecraft:green_shulker_box"}
+Protect : {"name" = "minecraft:red_shulker_box"}
+Protect : {"name" = "minecraft:black_shulker_box"}
+Protect : {"name" = "computercraft:computer"}
+Protect : {"name" = "computercraft:command_computer"}
+Protect : {"name" = "computercraft:turtle"}
+Protect : {"name" = "computercraft:turtle_advanced"}
+Protect : {"name" = "computercraft:cable"}
+Protect : {"name" = "computercraft:peripheral"}
+
+@Fortune setting
+
+Fortune : {"name" = "minecraft:diamond_ore"}
+Fortune : {"name" = "minecraft:emerald_ore"}
+Fortune : {"name" = "minecraft:glowstone"}
+Fortune : {"name" = "minecraft:lapis_ore"}
+Fortune : {"name" = "minecraft:melon_block"}
+Fortune : {"name" = "minecraft:redstone_ore"}
+Fortune : {"name" = "minecraft:sea_lantern"}
+Fortune : {"name" = "minecraft:quartz_ore"}
+
+@Silk touch setting
+
+SilkTouch : {"name" = "minecraft:bookshelf"}
+SilkTouch : {"name" = "minecraft:diamond_ore"}
+SilkTouch : {"name" = "minecraft:emerald_ore"}
+SilkTouch : {"name" = "minecraft:glass"}
+SilkTouch : {"name" = "minecraft:stained_glass"}
+SilkTouch : {"name" = "minecraft:glass_pane"}
+SilkTouch : {"name" = "minecraft:stained_glass_pane"}
+SilkTouch : {"name" = "minecraft:glowstone"}
+SilkTouch : {"name" = "minecraft:lapis_ore"}
+SilkTouch : {"name" = "minecraft:melon_block"}
+SilkTouch : {"name" = "minecraft:redstone_ore"}
+SilkTouch : {"name" = "minecraft:sea_lantern"}
+SilkTouch : {"name" = "minecraft:quartz_ore"}

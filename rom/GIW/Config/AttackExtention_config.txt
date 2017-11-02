@@ -1,0 +1,3 @@
+@Fuel threshold setting
+
+Threshold : 0

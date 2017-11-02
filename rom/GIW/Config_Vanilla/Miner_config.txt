@@ -1,0 +1,11 @@
+@Chest orientations
+
+Unload : "SOUTH"
+Supply : "EAST"
+
+@Disposable item settings
+
+Disposable : {"name" = "minecraft:cobblestone"}
+Disposable : {"name" = "minecraft:stone"}
+Disposable : {"name" = "minecraft:dirt"}
+Disposable : {"name" = "minecraft:gravel"}

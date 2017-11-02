@@ -1,0 +1,13 @@
+@Chest orientations
+
+Fuel : {0, "EAST"}
+Unload : {1, "EAST"}
+
+@Disposable items
+
+Disposable : {"name" = "minecraft:cobblestone"}
+Disposable : {"name" = "minecraft:stone"}
+Disposable : {"name" = "minecraft:gravel"}
+Disposable : {"name" = "environmentaltech:hardened_stone"}
+Disposable : {"name" = "environmentaltech:basalt"}
+Disposable : {"name" = "environmentaltech:alabaster"}

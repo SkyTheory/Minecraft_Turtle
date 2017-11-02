@@ -1,0 +1,29 @@
+@Chest orientations
+
+Fuel : {0, "EAST"}
+Unload : {1, "EAST"}
+Material : {2, "EAST"}
+Wait : false
+
+@Error message
+
+MaterialError1 : "Please put sapling into slot 1"
+MaterialError2 : "Please put log into slot 2"
+MaterialError3 : "Press any key to continue"
+MaterialError4 : "Please put seed into slot 1"
+
+@Crops
+
+Plant : {name = minecraft:wheat, harvest = 7, seed = minecraft:wheat_seeds}
+Plant : {name = minecraft:potatoes, harvest = 7, seed = minecraft:potato}
+Plant : {name = minecraft:carrots, harvest = 7, seed = minecraft:carrot}
+Plant : {name = minecraft:beetroots, harvest = 3, seed = minecraft:beetroot_seeds}
+Block : {name = minecraft:melon_block}
+Block : {name = minecraft:pumpkin}
+Plant : {name = dcs_climate:dcs_crop_rice, harvest = 3, seed = dcs_climate:dcs_food_seeds, sdamage = 0}
+Plant : {name = dcs_climate:dcs_crop_onion, harvest = 3, seed = dcs_climate:dcs_food_seeds, sdamage = 1}
+Plant : {name = dcs_climate:dcs_crop_spinach, harvest = 3, seed = dcs_climate:dcs_food_seeds, sdamage = 2}
+Plant : {name = dcs_climate:dcs_crop_tomato, harvest = 7, seed = dcs_climate:dcs_food_seeds, sdamage = 3}
+Plant : {name = dcs_climate:dcs_crop_coffee, harvest = 7, seed = dcs_climate:dcs_food_seeds, sdamage = 4}
+Plant : {name = dcs_climate:dcs_crop_cotton, harvest = 7, seed = dcs_climate:dcs_food_seeds, sdamage = 5}
+Plant : {name = immersiveengineering:hemp, harvest = 5, seed = immersiveenginieering:seed}
