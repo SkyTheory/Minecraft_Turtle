@@ -1,4 +1,4 @@
-version = "2.50"
+version = "2.51"
 
 dependency.require("GIWUtil", "FileHandler")
 dependency.after("GIWUtil", "FileHandler")
@@ -288,6 +288,9 @@ function simplification(self, log)
     else
       table.insert(oldDatas, data)
     end
+  end
+  for i = 1, pindex do
+    table.remove(logDatas, 1)
   end
   for i, v in ipairs(oldDatas) do
     self:decode(simpleLog, v)
